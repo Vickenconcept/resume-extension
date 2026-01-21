@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Extension Icons</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            background: #f97316;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #ea580c;
+        }
+        .preview {
+            display: inline-block;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Resume Tailor Extension Icons</h1>
+    <p>Click the buttons below to generate and download icon files</p>
+    
+    <div class="preview">
+        <canvas id="icon16" width="16" height="16"></canvas>
+        <br><button onclick="downloadIcon('icon16', 16)">Download icon16.png</button>
+    </div>
+    
+    <div class="preview">
+        <canvas id="icon48" width="48" height="48"></canvas>
+        <br><button onclick="downloadIcon('icon48', 48)">Download icon48.png</button>
+    </div>
+    
+    <div class="preview">
+        <canvas id="icon128" width="128" height="128"></canvas>
+        <br><button onclick="downloadIcon('icon128', 128)">Download icon128.png</button>
+    </div>
+    
+    <div style="margin-top: 30px;">
+        <button onclick="downloadAll()">Download All Icons</button>
+    </div>
+
+    <script>
+        function drawIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Orange background (#f97316)
+            ctx.fillStyle = '#f97316';
+            ctx.fillRect(0, 0, size, size);
+            
+            // White "R" letter in center
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('R', size / 2, size / 2);
+        }
+        
+        function downloadIcon(canvasId, size) {
+            drawIcon(canvasId, size);
+            const canvas = document.getElementById(canvasId);
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `icon${size}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+        
+        function downloadAll() {
+            setTimeout(() => downloadIcon('icon16', 16), 100);
+            setTimeout(() => downloadIcon('icon48', 48), 300);
+            setTimeout(() => downloadIcon('icon128', 128), 500);
+        }
+        
+        // Draw preview icons on load
+        window.onload = function() {
+            drawIcon('icon16', 16);
+            drawIcon('icon48', 48);
+            drawIcon('icon128', 128);
+        };
+    </script>
+</body>
+</html>

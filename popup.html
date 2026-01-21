@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume Tailor</title>
+  <link rel="stylesheet" href="popup.css">
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Resume Tailor</h1>
+      <div id="user-info" style="display: none; font-size: 12px; color: #6b7280; margin-top: 5px;">
+        <span id="user-name"></span> | <a href="#" id="logout-link" style="color: #f97316; cursor: pointer;">Logout</a>
+      </div>
+    </header>
+
+    <!-- Auth Section -->
+    <div id="auth-section" class="section">
+      <h2>Welcome to Resume Tailor</h2>
+      <p class="subtitle">Sign in to continue or create an account</p>
+      
+      <div id="login-form">
+        <h3 style="font-size: 16px; margin-bottom: 15px;">Login</h3>
+        <input type="email" id="login-email" placeholder="Email" class="input">
+        <input type="password" id="login-password" placeholder="Password" class="input">
+        <button id="login-btn" class="btn btn-primary">Sign In</button>
+        
+        <p style="text-align: center; margin-top: 15px; font-size: 14px;">
+          Don't have an account? <a href="#" id="show-register" style="color: #f97316; cursor: pointer;">Sign Up</a>
+        </p>
+      </div>
+      
+      <div id="register-form" style="display: none;">
+        <h3 style="font-size: 16px; margin-bottom: 15px;">Create Account</h3>
+        <input type="text" id="register-name" placeholder="Name" class="input">
+        <input type="email" id="register-email" placeholder="Email" class="input">
+        <input type="password" id="register-password" placeholder="Password (min 8 characters)" class="input">
+        <input type="password" id="register-password-confirm" placeholder="Confirm Password" class="input">
+        <button id="register-btn" class="btn btn-primary">Create Account</button>
+        
+        <p style="text-align: center; margin-top: 15px; font-size: 14px;">
+          Already have an account? <a href="#" id="show-login" style="color: #f97316; cursor: pointer;">Sign In</a>
+        </p>
+      </div>
+      
+      <div id="auth-error" style="display: none; color: #ef4444; font-size: 14px; margin-top: 10px; text-align: center;"></div>
+    </div>
+
+    <!-- Upload Section -->
+    <div id="upload-section" class="section hidden">
+      <h2>Upload Your Resume</h2>
+      <p class="subtitle">Upload once, tailor unlimited</p>
+      
+      <div class="upload-area" id="upload-area">
+        <input type="file" id="resume-file" accept=".pdf,.docx" hidden>
+        <div class="upload-box" id="upload-box">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p>Click to upload or drag and drop</p>
+          <p class="file-info">PDF or DOCX (max 5MB)</p>
+        </div>
+        <div id="upload-status" class="upload-status hidden"></div>
+      </div>
+
+      <button id="upload-btn" class="btn btn-primary" disabled>Upload Resume</button>
+    </div>
+
+    <!-- Ready Section (shown after upload) -->
+    <div id="ready-section" class="section hidden">
+      <div class="status-card success">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <p>Resume uploaded successfully!</p>
+      </div>
+      
+      <div class="instructions">
+        <p>1. Highlight a job description on any job posting</p>
+        <p>2. Right-click → "Tailor resume to this role"</p>
+        <p>3. View your tailored content below</p>
+      </div>
+      
+      <button id="settings-btn" class="btn btn-secondary" style="margin-top: 15px; width: 100%;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px; vertical-align: middle;">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"></path>
+        </svg>
+        Upload/Update Resume
+      </button>
+    </div>
+
+    <!-- Tailor Section -->
+    <div id="tailor-section" class="section hidden">
+      <h2>Tailored Content</h2>
+      
+      <div id="job-description-preview" class="job-preview">
+        <p class="label">Job Description:</p>
+        <p id="job-text" class="job-text"></p>
+      </div>
+
+      <button id="tailor-btn" class="btn btn-primary">Generate Tailored Content</button>
+      
+      <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p>Generating your tailored resume content...</p>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-section" class="section hidden">
+      <h2>Your Tailored Content</h2>
+
+      <!-- Summary -->
+      <div class="result-card">
+        <h3>Professional Summary</h3>
+        <div id="summary-content" class="content-box"></div>
+        <button class="btn-copy" data-target="summary">Copy</button>
+      </div>
+
+      <!-- Bullet Points -->
+      <div class="result-card">
+        <h3>Tailored Experience Bullets</h3>
+        <div id="bullets-content" class="content-box"></div>
+        <button class="btn-copy" data-target="bullets">Copy</button>
+      </div>
+
+      <!-- Keywords -->
+      <div class="result-card">
+        <h3>ATS Keywords to Include</h3>
+        <div id="keywords-content" class="content-box"></div>
+        <button class="btn-copy" data-target="keywords">Copy</button>
+      </div>
+
+      <div class="actions">
+        <button id="download-btn" class="btn btn-secondary">Download as DOCX</button>
+        <button id="new-tailor-btn" class="btn btn-primary">Tailor Another Role</button>
+      </div>
+    </div>
+
+    <!-- Error Section -->
+    <div id="error-section" class="section hidden">
+      <div class="status-card error">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <p id="error-message"></p>
+      </div>
+      <button id="retry-btn" class="btn btn-primary">Try Again</button>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="ui.js"></script>
+  <script src="auth.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

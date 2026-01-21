@@ -1,0 +1,298 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  width: 400px;
+  min-height: 500px;
+  background: #ffffff;
+  color: #000000;
+}
+
+.container {
+  padding: 20px;
+}
+
+.header {
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f97316;
+}
+
+.header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0;
+}
+
+.section {
+  display: block;
+}
+
+.section.hidden {
+  display: none;
+}
+
+h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #000000;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+/* Upload Area */
+.upload-area {
+  margin-bottom: 15px;
+}
+
+.upload-box {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #f9fafb;
+}
+
+.upload-box:hover {
+  border-color: #f97316;
+  background: #fff7ed;
+}
+
+.upload-box svg {
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.upload-box p {
+  font-size: 14px;
+  color: #374151;
+  margin: 5px 0;
+}
+
+.file-info {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.upload-status {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.upload-status.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.upload-status.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Buttons */
+.btn {
+  width: 100%;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #f97316;
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #ea580c;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #000000;
+  margin-bottom: 10px;
+}
+
+.btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+.btn-copy {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.btn-copy:hover {
+  background: #e5e7eb;
+}
+
+/* Status Cards */
+.status-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.status-card.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-card.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-card svg {
+  flex-shrink: 0;
+}
+
+/* Instructions */
+.instructions {
+  background: #f9fafb;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #374151;
+}
+
+.instructions p {
+  margin: 5px 0;
+}
+
+/* Job Preview */
+.job-preview {
+  background: #f9fafb;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.job-text {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.6;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 30px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top-color: #f97316;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 15px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading p {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* Result Cards */
+.result-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.result-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #000000;
+}
+
+.content-box {
+  background: #f9fafb;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #374151;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.content-box ul {
+  margin-left: 20px;
+  margin-top: 8px;
+}
+
+.content-box li {
+  margin-bottom: 6px;
+}
+
+.actions {
+  margin-top: 20px;
+}
