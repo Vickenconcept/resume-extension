@@ -17,7 +17,7 @@
     </header>
 
     <!-- Auth Section -->
-    <div id="auth-section" class="section">
+    <div id="auth-section" class="section hidden">
       <h2>Welcome to Resume Tailor</h2>
       <p class="subtitle">Sign in to continue or create an account</p>
       
@@ -80,6 +80,33 @@
         <p>Resume uploaded successfully!</p>
       </div>
       
+      <!-- Resume Info Card -->
+      <div id="resume-info-card" class="resume-info-card" style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; margin-bottom: 5px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px; color: #6b7280;">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+              <strong id="resume-filename" style="font-size: 14px; color: #111827;"></strong>
+            </div>
+            <div id="resume-upload-date" style="font-size: 12px; color: #6b7280; margin-left: 24px;"></div>
+          </div>
+          <button id="download-resume-btn" class="btn btn-secondary" style="padding: 8px 16px; font-size: 13px; margin-left: 10px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px; vertical-align: middle;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download
+          </button>
+        </div>
+      </div>
+      
       <div class="instructions">
         <p>1. Highlight a job description on any job posting</p>
         <p>2. Right-click → "Tailor resume to this role"</p>
@@ -116,29 +143,23 @@
     <div id="results-section" class="section hidden">
       <h2>Your Tailored Content</h2>
 
-      <!-- Summary -->
+      <!-- Full Document Preview -->
       <div class="result-card">
-        <h3>Professional Summary</h3>
-        <div id="summary-content" class="content-box"></div>
-        <button class="btn-copy" data-target="summary">Copy</button>
+        <h3>Tailored Resume</h3>
+        <div id="full-document-content" class="content-box" style="white-space: pre-wrap; font-family: monospace; font-size: 11px;"></div>
+        <button class="btn-copy" data-target="full-document">Copy Resume</button>
       </div>
 
-      <!-- Bullet Points -->
+      <!-- Cover Letter -->
       <div class="result-card">
-        <h3>Tailored Experience Bullets</h3>
-        <div id="bullets-content" class="content-box"></div>
-        <button class="btn-copy" data-target="bullets">Copy</button>
-      </div>
-
-      <!-- Keywords -->
-      <div class="result-card">
-        <h3>ATS Keywords to Include</h3>
-        <div id="keywords-content" class="content-box"></div>
-        <button class="btn-copy" data-target="keywords">Copy</button>
+        <h3>Cover Letter</h3>
+        <div id="cover-letter-content" class="content-box" style="white-space: pre-wrap; font-family: monospace; font-size: 11px;"></div>
+        <button class="btn-copy" data-target="cover-letter">Copy Cover Letter</button>
       </div>
 
       <div class="actions">
-        <button id="download-btn" class="btn btn-secondary">Download as DOCX</button>
+        <button id="download-docx-btn" class="btn btn-secondary" style="margin-bottom: 10px;">Download Resume as DOCX</button>
+        <button id="download-pdf-btn" class="btn btn-secondary" style="margin-bottom: 10px;">Download Resume as PDF</button>
         <button id="new-tailor-btn" class="btn btn-primary">Tailor Another Role</button>
       </div>
     </div>

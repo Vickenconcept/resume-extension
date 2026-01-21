@@ -45,11 +45,11 @@ try {
   console.error('Error selecting elements:', error);
 }
 
-const summaryContent = document.getElementById('summary-content');
-const bulletsContent = document.getElementById('bullets-content');
-const keywordsContent = document.getElementById('keywords-content');
+const fullDocumentContent = document.getElementById('full-document-content');
+const coverLetterContent = document.getElementById('cover-letter-content');
 
-const downloadBtn = document.getElementById('download-btn');
+const downloadDocxBtn = document.getElementById('download-docx-btn');
+const downloadPdfBtn = document.getElementById('download-pdf-btn');
 const newTailorBtn = document.getElementById('new-tailor-btn');
 const errorMessage = document.getElementById('error-message');
 const retryBtn = document.getElementById('retry-btn');
@@ -192,6 +192,15 @@ async function apiRequest(endpoint, options = {}) {
 async function init() {
   console.log('Initializing popup...');
   
+  // IMPORTANT: Hide all sections initially to prevent flash
+  // Hide auth section by default (it's already hidden in HTML)
+  authSection.classList.add('hidden');
+  uploadSection.classList.add('hidden');
+  readySection.classList.add('hidden');
+  tailorSection.classList.add('hidden');
+  resultsSection.classList.add('hidden');
+  errorSection.classList.add('hidden');
+  
   // IMPORTANT: Hide loading immediately on init - never show it automatically
   if (loading) {
     loading.classList.add('hidden');
@@ -202,7 +211,7 @@ async function init() {
   // API_BASE_URL is already set from config.js at the top of the file
   console.log('API Base URL:', getApiBaseUrl());
   
-  // Check authentication first
+  // Check authentication first (synchronously from storage)
   const { authToken, user } = await chrome.storage.local.get(['authToken', 'user']);
   
   if (!authToken) {
@@ -211,7 +220,12 @@ async function init() {
     return;
   }
   
-  // Verify token is still valid
+  // If we have a token, show user info immediately (optimistic UI)
+  if (user) {
+    window.updateUserInfo(user);
+  }
+  
+  // Verify token is still valid (async check)
   try {
     const response = await window.apiRequest('/me');
     if (response.success) {
@@ -233,19 +247,55 @@ async function init() {
     return;
   }
   
-  // Check if there's an operation in progress
-  const { operationState, resumeId, pendingJobDescription } = await chrome.storage.local.get([
+  // Check if there's an operation in progress or saved state
+  const { 
+    operationState, 
+    resumeId, 
+    pendingJobDescription,
+    currentSection,
+    lastResults,
+    lastViewedAt,
+    savedJobDescription
+  } = await chrome.storage.local.get([
     'operationState', 
     'resumeId',
-    'pendingJobDescription'
+    'pendingJobDescription',
+    'currentSection',
+    'lastResults',
+    'lastViewedAt',
+    'savedJobDescription'
   ]);
   
   console.log('Popup initialization state:', {
     operationState,
+    currentSection,
     hasResumeId: !!resumeId,
     hasPendingJobDescription: !!pendingJobDescription,
-    pendingJobDescriptionLength: pendingJobDescription?.length
+    hasLastResults: !!lastResults,
+    lastViewedAt,
+    hasSavedJobDescription: !!savedJobDescription
   });
+  
+  // Only restore results if:
+  // 1. No operation is in progress
+  // 2. Results section was the last viewed section
+  // 3. Results exist and were viewed recently (within 24 hours)
+  // 4. User is not starting a new tailoring operation (no pending job description)
+  const shouldRestoreResults = 
+    !operationState && // No active operation
+    currentSection === 'results' && // Was viewing results
+    lastResults && // Results exist
+    lastViewedAt && // Has timestamp
+    (Date.now() - lastViewedAt < 86400000) && // Within 24 hours
+    !pendingJobDescription; // Not starting a new tailoring
+  
+  if (shouldRestoreResults) {
+    // Restore results section with saved data
+    console.log('Restoring results section from saved state...');
+    await displayResults(lastResults);
+    window.showResultsSection();
+    return;
+  }
   
   if (operationState === 'tailoring') {
     // User closed popup during tailoring - restore job description but don't show loading
@@ -275,7 +325,8 @@ async function init() {
       await chrome.storage.local.set({ operationState: null });
       if (resumeId) {
         window.showReadySection();
-        checkForSelectedText();
+        loadResumeInfo(); // Load and display resume info
+        // checkForSelectedText() is now handled earlier in init()
       } else {
         window.showUploadSection();
       }
@@ -290,7 +341,8 @@ async function init() {
     // Normal state - resume uploaded, ready for tailoring
     console.log('Resume already uploaded, showing ready section');
     window.showReadySection();
-    checkForSelectedText();
+    loadResumeInfo(); // Load and display resume info
+    // checkForSelectedText() is now handled earlier in init()
   } else {
     // No resume uploaded
     console.log('No resume uploaded, showing upload section');
@@ -300,51 +352,8 @@ async function init() {
   console.log('Popup initialization complete');
 }
 
-// Show sections
-function showUploadSection() {
-  uploadSection.classList.remove('hidden');
-  readySection.classList.add('hidden');
-  tailorSection.classList.add('hidden');
-  resultsSection.classList.add('hidden');
-  errorSection.classList.add('hidden');
-}
-
-function showReadySection() {
-  authSection.classList.add('hidden');
-  uploadSection.classList.add('hidden');
-  readySection.classList.remove('hidden');
-  tailorSection.classList.add('hidden');
-  resultsSection.classList.add('hidden');
-  errorSection.classList.add('hidden');
-}
-
-function showTailorSection() {
-  console.log('Showing tailor section...');
-  authSection.classList.add('hidden');
-  uploadSection.classList.add('hidden');
-  readySection.classList.add('hidden');
-  tailorSection.classList.remove('hidden');
-  resultsSection.classList.add('hidden');
-  errorSection.classList.add('hidden');
-  
-  // Ensure button is enabled and loading is hidden when section is shown
-  if (tailorBtn) {
-    tailorBtn.disabled = false;
-    console.log('Tailor button enabled, visible:', tailorBtn.offsetParent !== null);
-  }
-  if (loading) {
-    loading.classList.add('hidden'); // Always hide loading when section is shown - only show after button click
-  }
-}
-
-function showResultsSection() {
-  authSection.classList.add('hidden');
-  uploadSection.classList.add('hidden');
-  readySection.classList.add('hidden');
-  tailorSection.classList.add('hidden');
-  resultsSection.classList.remove('hidden');
-  errorSection.classList.add('hidden');
-}
+// Show sections - functions are defined in ui.js, but we keep state saving logic here
+// The actual UI manipulation is handled by ui.js functions
 
 function showError(message) {
   errorMessage.textContent = message;
@@ -455,15 +464,19 @@ async function uploadResume() {
 
     // Standard response format
     if (data.success && data.data.resumeId) {
-      // Clear operation state
+      // Clear operation state and save resume info
       await chrome.storage.local.set({ 
         resumeId: data.data.resumeId,
+        resumeFilename: data.data.filename || 'resume.pdf',
+        resumeCloudinaryUrl: data.data.cloudinaryUrl,
+        resumeUploadedAt: data.data.uploadedAt,
         operationState: null 
       });
       
       showUploadStatus('Resume uploaded successfully!', 'success');
       setTimeout(() => {
         window.showReadySection();
+        loadResumeInfo(); // Load and display resume info
         checkForSelectedText();
       }, 1000);
     } else {
@@ -485,13 +498,95 @@ function showUploadStatus(message, type) {
 
 uploadBtn.addEventListener('click', uploadResume);
 
+// Load and display resume information
+async function loadResumeInfo() {
+  try {
+    // Try to get from storage first (fast)
+    const { resumeFilename, resumeCloudinaryUrl, resumeUploadedAt } = await chrome.storage.local.get([
+      'resumeFilename', 
+      'resumeCloudinaryUrl', 
+      'resumeUploadedAt'
+    ]);
+    
+    if (resumeFilename && resumeCloudinaryUrl) {
+      displayResumeInfo(resumeFilename, resumeCloudinaryUrl, resumeUploadedAt);
+      return;
+    }
+    
+    // If not in storage, fetch from API
+    const { authToken } = await chrome.storage.local.get(['authToken']);
+    if (!authToken) {
+      return; // Not authenticated
+    }
+    
+    const response = await window.apiRequest('/resume');
+    if (response.success && response.data) {
+      // Save to storage
+      await chrome.storage.local.set({
+        resumeFilename: response.data.filename,
+        resumeCloudinaryUrl: response.data.cloudinaryUrl,
+        resumeUploadedAt: response.data.uploadedAt,
+      });
+      displayResumeInfo(response.data.filename, response.data.cloudinaryUrl, response.data.uploadedAt);
+    }
+  } catch (error) {
+    console.error('Failed to load resume info:', error);
+    // Hide resume info card if error
+    const resumeInfoCard = document.getElementById('resume-info-card');
+    if (resumeInfoCard) {
+      resumeInfoCard.style.display = 'none';
+    }
+  }
+}
+
+// Display resume information in the UI
+function displayResumeInfo(filename, cloudinaryUrl, uploadedAt) {
+  const resumeFilename = document.getElementById('resume-filename');
+  const resumeUploadDate = document.getElementById('resume-upload-date');
+  const resumeInfoCard = document.getElementById('resume-info-card');
+  
+  if (resumeFilename) {
+    resumeFilename.textContent = filename;
+  }
+  
+  if (resumeUploadDate && uploadedAt) {
+    try {
+      const date = new Date(uploadedAt);
+      const formattedDate = date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      resumeUploadDate.textContent = `Uploaded: ${formattedDate}`;
+    } catch (e) {
+      resumeUploadDate.textContent = '';
+    }
+  }
+  
+  if (resumeInfoCard) {
+    resumeInfoCard.style.display = 'block';
+  }
+}
+
 // Check for selected text from context menu
+// NOTE: This is now called from init() before showing ready section
+// This function is kept for backward compatibility but may not be needed
 async function checkForSelectedText() {
   const { selectedJobDescription } = await chrome.storage.local.get(['selectedJobDescription']);
   
   if (selectedJobDescription) {
+    // New job description selected - clear old results state
+    await chrome.storage.local.set({
+      currentSection: 'tailor',
+      operationState: null, // Clear any pending operation
+      pendingJobDescription: null, // Clear old pending description
+      // Keep lastResults for reference, but don't auto-restore
+    });
+    
     jobText.textContent = selectedJobDescription;
-    showTailorSection();
+    window.showTailorSection();
     // Clear stored text
     chrome.storage.local.remove(['selectedJobDescription']);
     
@@ -539,10 +634,12 @@ if (tailorBtn) {
         return;
       }
 
-      // Set operation state for persistence
+      // Set operation state for persistence and clear old results
       await chrome.storage.local.set({ 
         operationState: 'tailoring',
-        pendingJobDescription: jobDescription 
+        pendingJobDescription: jobDescription,
+        currentSection: 'tailor', // Update section to tailor (not results)
+        // Don't clear lastResults yet - we'll update it after successful generation
       });
       
       console.log('Operation state saved:', { 
@@ -593,14 +690,23 @@ if (tailorBtn) {
 
         // Standard response format
         if (response.success && response.data) {
-          // Clear operation state and pending job description
-          await chrome.storage.local.set({ 
-            operationState: null,
-            pendingJobDescription: null 
-          });
+          console.log('=== TAILORED CONTENT RECEIVED ===');
+          console.log('Download URLs:', response.data.downloadUrls);
+          console.log('DOCX URL:', response.data.downloadUrls?.docx);
+          console.log('PDF URL:', response.data.downloadUrls?.pdf);
+          console.log('Full document length:', response.data.fullDocument?.length);
+          console.log('Cover letter length:', response.data.coverLetter?.length);
           
           console.log('Displaying results...');
-          displayResults(response.data);
+          await displayResults(response.data);
+          
+          // Clear operation state and pending job description AFTER displaying results
+          await chrome.storage.local.set({ 
+            operationState: null,
+            pendingJobDescription: null,
+            savedJobDescription: jobDescription // Save the job description for this result
+          });
+          
           window.showResultsSection();
           console.log('Results displayed successfully');
         } else {
@@ -666,33 +772,40 @@ if (tailorBtn) {
 }
 
 // Display results
-function displayResults(data) {
-  // Professional Summary
-  summaryContent.textContent = data.summary || 'No summary generated';
-
-  // Bullet Points
-  if (Array.isArray(data.bulletPoints)) {
-    const ul = document.createElement('ul');
-    data.bulletPoints.forEach(bullet => {
-      const li = document.createElement('li');
-      li.textContent = bullet;
-      ul.appendChild(li);
-    });
-    bulletsContent.innerHTML = '';
-    bulletsContent.appendChild(ul);
+async function displayResults(data) {
+  // Full Resume Preview (backend returns 'fullResume', not 'fullDocument')
+  const fullResumeText = data.fullResume || data.fullDocument || '';
+  if (fullResumeText) {
+    fullDocumentContent.textContent = fullResumeText;
   } else {
-    bulletsContent.textContent = data.bulletPoints || 'No bullets generated';
+    fullDocumentContent.textContent = 'Resume not available';
   }
 
-  // Keywords
-  if (Array.isArray(data.keywords)) {
-    keywordsContent.textContent = data.keywords.join(', ');
+  // Cover Letter
+  if (data.coverLetter) {
+    coverLetterContent.textContent = data.coverLetter;
   } else {
-    keywordsContent.textContent = data.keywords || 'No keywords generated';
+    coverLetterContent.textContent = 'Cover letter not available';
   }
 
-  // Store results for download
-  chrome.storage.local.set({ lastResults: data });
+  // Store results for download (including download URLs)
+  // URLs are stored in TWO places for redundancy:
+  // 1. Top-level downloadUrls key
+  // 2. Inside lastResults.downloadUrls
+  await chrome.storage.local.set({ 
+    lastResults: {
+      ...data,
+      fullResume: fullResumeText, // Ensure fullResume is stored
+      fullDocument: fullResumeText // Keep for backward compatibility
+    },
+    downloadUrls: data.downloadUrls || null
+  });
+  
+  console.log('=== DOWNLOAD URLS STORED ===');
+  console.log('Stored in chrome.storage.local:');
+  console.log('  - downloadUrls (top level):', data.downloadUrls);
+  console.log('  - lastResults.downloadUrls:', data.downloadUrls);
+  console.log('Cloudinary folder: tailored-resumes');
 }
 
 // Copy buttons
@@ -702,14 +815,11 @@ document.querySelectorAll('.btn-copy').forEach(btn => {
     let text = '';
 
     switch (target) {
-      case 'summary':
-        text = summaryContent.textContent;
+      case 'full-document':
+        text = fullDocumentContent.textContent;
         break;
-      case 'bullets':
-        text = bulletsContent.textContent;
-        break;
-      case 'keywords':
-        text = keywordsContent.textContent;
+      case 'cover-letter':
+        text = coverLetterContent.textContent;
         break;
     }
 
@@ -723,9 +833,9 @@ document.querySelectorAll('.btn-copy').forEach(btn => {
   });
 });
 
-// Download button
-downloadBtn.addEventListener('click', async () => {
-  const { lastResults } = await chrome.storage.local.get(['lastResults']);
+// Download function (shared for both formats)
+async function downloadTailoredResume(format) {
+  const { downloadUrls, lastResults } = await chrome.storage.local.get(['downloadUrls', 'lastResults']);
   const { resumeId } = await chrome.storage.local.get(['resumeId']);
 
   if (!lastResults || !resumeId) {
@@ -734,12 +844,41 @@ downloadBtn.addEventListener('click', async () => {
   }
 
   try {
+    // Use pre-generated download URL if available
+    const directUrl = downloadUrls?.[format] || lastResults?.downloadUrls?.[format];
+    
+    if (directUrl) {
+      // Download directly from Cloudinary URL
+      const response = await fetch(directUrl);
+      if (!response.ok) {
+        throw new Error('Failed to download file from storage');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tailored-resume.${format}`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      return;
+    }
+
+    // Fallback: Use API endpoint if URLs not available
     const downloadUrl = `${getApiBaseUrl()}/download-tailored-resume`;
+    
+    // Get auth token from storage
+    const { authToken } = await chrome.storage.local.get(['authToken']);
     
     // Add ngrok-skip-browser-warning header for ngrok free tier
     const headers = {
       'Content-Type': 'application/json',
     };
+    
+    // Add Authorization header if token exists
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    
     if (downloadUrl.includes('ngrok-free.app') || downloadUrl.includes('ngrok-free.dev') || downloadUrl.includes('ngrok.io')) {
       headers['ngrok-skip-browser-warning'] = 'true';
     }
@@ -750,28 +889,70 @@ downloadBtn.addEventListener('click', async () => {
       body: JSON.stringify({
         resumeId,
         content: lastResults,
+        format: format, // 'docx' or 'pdf'
       }),
     });
 
     if (!response.ok) {
-      throw new Error('Download failed');
+      // Try to get error message from response
+      let errorMessage = 'Download failed';
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } else {
+          const text = await response.text();
+          if (text) {
+            errorMessage = `Download failed: ${response.status} ${response.statusText}`;
+          }
+        }
+      } catch (e) {
+        errorMessage = `Download failed: ${response.status} ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
     }
 
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'tailored-resume.docx';
+    a.download = `tailored-resume.${format}`;
     a.click();
     window.URL.revokeObjectURL(url);
   } catch (error) {
-    window.showError(error.message);
+    console.error('Download error:', error);
+    window.showError(error.message || 'Failed to download resume');
   }
-});
+}
+
+// Download DOCX button
+if (downloadDocxBtn) {
+  downloadDocxBtn.addEventListener('click', async () => {
+    await downloadTailoredResume('docx');
+  });
+}
+
+// Download PDF button
+if (downloadPdfBtn) {
+  downloadPdfBtn.addEventListener('click', async () => {
+    await downloadTailoredResume('pdf');
+  });
+}
 
 // New tailor button
-newTailorBtn.addEventListener('click', () => {
+newTailorBtn.addEventListener('click', async () => {
+  // Clear saved results state and any pending operations
+  await chrome.storage.local.set({ 
+    currentSection: 'ready',
+    lastResults: null,
+    lastViewedAt: null,
+    savedJobDescription: null,
+    operationState: null,
+    pendingJobDescription: null
+  });
   window.showReadySection();
+  loadResumeInfo(); // Load and display resume info
   checkForSelectedText();
 });
 
@@ -829,6 +1010,46 @@ if (settingsBtn) {
   });
 }
 
+// Download resume button handler
+const downloadResumeBtn = document.getElementById('download-resume-btn');
+if (downloadResumeBtn) {
+  downloadResumeBtn.addEventListener('click', async () => {
+    try {
+      const { resumeCloudinaryUrl, resumeFilename } = await chrome.storage.local.get([
+        'resumeCloudinaryUrl', 
+        'resumeFilename'
+      ]);
+      
+      if (!resumeCloudinaryUrl) {
+        // Try to fetch from API
+        const response = await window.apiRequest('/resume');
+        if (response.success && response.data.cloudinaryUrl) {
+          const url = response.data.cloudinaryUrl;
+          const filename = response.data.filename || 'resume.pdf';
+          // Download from Cloudinary URL
+          window.open(url, '_blank');
+        } else {
+          window.showError('Resume URL not found');
+        }
+        return;
+      }
+      
+      // Download from Cloudinary URL
+      const filename = resumeFilename || 'resume.pdf';
+      window.open(resumeCloudinaryUrl, '_blank');
+      
+    } catch (error) {
+      console.error('Download error:', error);
+      window.showError('Failed to download resume: ' + error.message);
+    }
+  });
+}
+
+// Setup authentication handlers
+if (typeof window.setupAuthHandlers === 'function') {
+  window.setupAuthHandlers();
+}
+
 // Initialize on load
 init();
 
@@ -836,7 +1057,7 @@ init();
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.selectedJobDescription && changes.selectedJobDescription.newValue) {
     jobText.textContent = changes.selectedJobDescription.newValue;
-    showTailorSection();
+    window.showTailorSection();
     
     // Ensure loading is hidden - never show automatically
     if (loading) {

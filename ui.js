@@ -13,13 +13,13 @@
 
   // Show sections
   window.showAuthSection = function() {
-  authSection.classList.remove('hidden');
-  uploadSection.classList.add('hidden');
-  readySection.classList.add('hidden');
-  tailorSection.classList.add('hidden');
-  resultsSection.classList.add('hidden');
-  errorSection.classList.add('hidden');
-}
+    authSection.classList.remove('hidden');
+    uploadSection.classList.add('hidden');
+    readySection.classList.add('hidden');
+    tailorSection.classList.add('hidden');
+    resultsSection.classList.add('hidden');
+    errorSection.classList.add('hidden');
+  };
 
   window.showUploadSection = function() {
     authSection.classList.add('hidden');
@@ -28,6 +28,9 @@
     tailorSection.classList.add('hidden');
     resultsSection.classList.add('hidden');
     errorSection.classList.add('hidden');
+    
+    // Save current section state
+    chrome.storage.local.set({ currentSection: 'upload' });
   };
 
   window.showReadySection = function() {
@@ -37,6 +40,9 @@
     tailorSection.classList.add('hidden');
     resultsSection.classList.add('hidden');
     errorSection.classList.add('hidden');
+    
+    // Save current section state
+    chrome.storage.local.set({ currentSection: 'ready' });
   };
 
   window.showTailorSection = function() {
@@ -47,6 +53,9 @@
     tailorSection.classList.remove('hidden');
     resultsSection.classList.add('hidden');
     errorSection.classList.add('hidden');
+    
+    // Save current section state
+    chrome.storage.local.set({ currentSection: 'tailor' });
     
     // Ensure button is enabled and loading is hidden when section is shown
     const tailorBtn = document.getElementById('tailor-btn');
@@ -67,6 +76,12 @@
     tailorSection.classList.add('hidden');
     resultsSection.classList.remove('hidden');
     errorSection.classList.add('hidden');
+    
+    // Save current section state
+    chrome.storage.local.set({ 
+      currentSection: 'results',
+      lastViewedAt: Date.now()
+    });
   };
 
   window.showError = function(message) {
