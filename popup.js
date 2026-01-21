@@ -211,7 +211,78 @@ async function init() {
   // API_BASE_URL is already set from config.js at the top of the file
   console.log('API Base URL:', getApiBaseUrl());
   
-  // Check authentication first (synchronously from storage)
+  // PRIORITY 1: Check for selected text from context menu FIRST (before auth check)
+  // This ensures new job descriptions are handled immediately without delay
+  const { selectedJobDescription } = await chrome.storage.local.get(['selectedJobDescription']);
+  if (selectedJobDescription) {
+    console.log('New job description selected from context menu, showing tailor section immediately...');
+    
+    // Show tailor section immediately with job description (don't wait for auth)
+    jobText.textContent = selectedJobDescription;
+    window.showTailorSection();
+    chrome.storage.local.remove(['selectedJobDescription']);
+    
+    // Clear old results state
+    await chrome.storage.local.set({
+      currentSection: 'tailor',
+      operationState: null,
+      pendingJobDescription: null,
+    });
+    
+    // Show a brief loading indicator while checking auth (small, non-intrusive)
+    const loadingText = document.createElement('div');
+    loadingText.id = 'auth-checking';
+    loadingText.style.cssText = 'text-align: center; padding: 5px; color: #9ca3af; font-size: 11px; margin-bottom: 10px;';
+    loadingText.textContent = 'Verifying...';
+    const tailorContent = tailorSection.querySelector('.section-content') || tailorSection;
+    tailorContent.insertBefore(loadingText, tailorContent.firstChild);
+    
+    // Check authentication in background (non-blocking)
+    const { authToken, user } = await chrome.storage.local.get(['authToken', 'user']);
+    
+    if (!authToken) {
+      // No auth token - remove loading text and show auth
+      if (loadingText.parentNode) loadingText.remove();
+      window.showAuthSection();
+      return;
+    }
+    
+    // If we have a token, show user info immediately (optimistic UI)
+    if (user) {
+      window.updateUserInfo(user);
+    }
+    
+    // Verify token in background (non-blocking for UI)
+    window.apiRequest('/me').then(response => {
+      // Remove loading text
+      if (loadingText.parentNode) loadingText.remove();
+      
+      if (response.success) {
+        chrome.storage.local.set({ user: response.data.user });
+        window.updateUserInfo(response.data.user);
+        console.log('User authenticated:', response.data.user);
+      } else {
+        // Token invalid, show auth
+        chrome.storage.local.remove(['authToken', 'user']);
+        window.showAuthSection();
+      }
+    }).catch(error => {
+      console.error('Auth check failed:', error);
+      // Remove loading text
+      if (loadingText.parentNode) loadingText.remove();
+      // Token invalid or expired, show auth
+      chrome.storage.local.remove(['authToken', 'user']);
+      window.showAuthSection();
+    });
+    
+    // Enable button immediately (user can see the job description)
+    if (tailorBtn) {
+      tailorBtn.disabled = false;
+    }
+    return;
+  }
+  
+  // PRIORITY 2: Check authentication (only if no selected job description)
   const { authToken, user } = await chrome.storage.local.get(['authToken', 'user']);
   
   if (!authToken) {
@@ -339,10 +410,33 @@ async function init() {
     showUploadStatus('Upload in progress...', 'success');
   } else if (resumeId) {
     // Normal state - resume uploaded, ready for tailoring
-    console.log('Resume already uploaded, showing ready section');
-    window.showReadySection();
-    loadResumeInfo(); // Load and display resume info
-    // checkForSelectedText() is now handled earlier in init()
+    // But first check if there's a new selected job description
+    const { selectedJobDescription: checkSelected } = await chrome.storage.local.get(['selectedJobDescription']);
+    if (checkSelected) {
+      // New job description selected - show tailor section
+      console.log('Job description found, showing tailor section...');
+      await chrome.storage.local.set({
+        currentSection: 'tailor',
+        operationState: null,
+        pendingJobDescription: null,
+      });
+      
+      jobText.textContent = checkSelected;
+      window.showTailorSection();
+      chrome.storage.local.remove(['selectedJobDescription']);
+      
+      if (loading) {
+        loading.classList.add('hidden');
+      }
+      if (tailorBtn) {
+        tailorBtn.disabled = false;
+      }
+    } else {
+      // No new selection - show ready section
+      console.log('Resume already uploaded, showing ready section');
+      window.showReadySection();
+      loadResumeInfo(); // Load and display resume info
+    }
   } else {
     // No resume uploaded
     console.log('No resume uploaded, showing upload section');
@@ -475,6 +569,7 @@ async function uploadResume() {
       
       showUploadStatus('Resume uploaded successfully!', 'success');
       setTimeout(() => {
+        hideUploadStatus(); // Hide status before showing ready section
         window.showReadySection();
         loadResumeInfo(); // Load and display resume info
         checkForSelectedText();
@@ -491,9 +586,15 @@ async function uploadResume() {
 }
 
 function showUploadStatus(message, type) {
+  if (!uploadStatus) return;
   uploadStatus.textContent = message;
   uploadStatus.className = `upload-status ${type}`;
   uploadStatus.classList.remove('hidden');
+}
+
+function hideUploadStatus() {
+  if (!uploadStatus) return;
+  uploadStatus.classList.add('hidden');
 }
 
 uploadBtn.addEventListener('click', uploadResume);
@@ -667,12 +768,17 @@ if (tailorBtn) {
         console.error('This might indicate the request is hanging or the backend is slow');
       }, 10000);
 
+      // Get generate freely toggle value
+      const generateFreelyToggle = document.getElementById('generate-freely-toggle');
+      const generateFreely = generateFreelyToggle ? generateFreelyToggle.checked : false;
+      
       try {
         const response = await window.apiRequest(`/tailor-resume`, {
           method: 'POST',
           body: JSON.stringify({
             resumeId,
             jobDescription,
+            generateFreely: generateFreely, // Send toggle value
           }),
         });
 
@@ -843,6 +949,17 @@ async function downloadTailoredResume(format) {
     return;
   }
 
+  // Show loading state on the appropriate button
+  const downloadBtn = format === 'pdf' ? downloadPdfBtn : downloadDocxBtn;
+  const originalText = downloadBtn.textContent;
+  downloadBtn.disabled = true;
+  downloadBtn.textContent = 'Downloading...';
+  
+  // Add loading spinner if possible
+  if (downloadBtn.querySelector('.spinner')) {
+    downloadBtn.querySelector('.spinner').style.display = 'inline-block';
+  }
+
   try {
     // Use pre-generated download URL if available
     const directUrl = downloadUrls?.[format] || lastResults?.downloadUrls?.[format];
@@ -860,6 +977,10 @@ async function downloadTailoredResume(format) {
       a.download = `tailored-resume.${format}`;
       a.click();
       window.URL.revokeObjectURL(url);
+      
+      // Reset button state
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = originalText;
       return;
     }
 
@@ -920,8 +1041,15 @@ async function downloadTailoredResume(format) {
     a.download = `tailored-resume.${format}`;
     a.click();
     window.URL.revokeObjectURL(url);
+    
+    // Reset button state on success
+    downloadBtn.disabled = false;
+    downloadBtn.textContent = originalText;
   } catch (error) {
     console.error('Download error:', error);
+    // Reset button state on error
+    downloadBtn.disabled = false;
+    downloadBtn.textContent = originalText;
     window.showError(error.message || 'Failed to download resume');
   }
 }

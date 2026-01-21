@@ -41,6 +41,12 @@
     resultsSection.classList.add('hidden');
     errorSection.classList.add('hidden');
     
+    // Hide upload status if visible
+    const uploadStatus = document.getElementById('upload-status');
+    if (uploadStatus) {
+      uploadStatus.classList.add('hidden');
+    }
+    
     // Save current section state
     chrome.storage.local.set({ currentSection: 'ready' });
   };
