@@ -36,7 +36,23 @@
             user: response.data.user,
           });
           window.updateUserInfo(response.data.user);
-          // Reload to show upload section
+          // Clear ALL old state including resume data - init() will determine if we show home or upload
+          await chrome.storage.local.remove([
+            'selectedJobDescription', 
+            'currentSection', 
+            'operationState', 
+            'pendingJobDescription',
+            'lastResults',           // Clear old tailored results
+            'downloadUrls',          // Clear old download URLs
+            'resumeId',              // Clear old resume ID (will be fetched fresh)
+            'resumeFilename',         // Clear old resume filename
+            'resumeCloudinaryUrl',   // Clear old resume URL
+            'resumeUploadedAt',      // Clear old upload date
+            'savedJobDescription',   // Clear old job description
+            'lastViewedAt',          // Clear last viewed timestamp
+            'generationStartTime'    // Clear generation start time
+          ]);
+          // Reload - init() will show home page if resume exists, upload if new account
           location.reload();
         }
       } catch (error) {
@@ -101,7 +117,23 @@
             user: response.data.user,
           });
           window.updateUserInfo(response.data.user);
-          // Reload to show upload section
+          // Clear ALL old state including resume data - init() will determine if we show home or upload
+          await chrome.storage.local.remove([
+            'selectedJobDescription', 
+            'currentSection', 
+            'operationState', 
+            'pendingJobDescription',
+            'lastResults',           // Clear old tailored results
+            'downloadUrls',          // Clear old download URLs
+            'resumeId',              // Clear old resume ID (will be fetched fresh)
+            'resumeFilename',         // Clear old resume filename
+            'resumeCloudinaryUrl',   // Clear old resume URL
+            'resumeUploadedAt',      // Clear old upload date
+            'savedJobDescription',   // Clear old job description
+            'lastViewedAt',          // Clear last viewed timestamp
+            'generationStartTime'    // Clear generation start time
+          ]);
+          // Reload - init() will show home page if resume exists, upload if new account
           location.reload();
         }
       } catch (error) {

@@ -9,6 +9,7 @@
   const tailorSection = document.getElementById('tailor-section');
   const resultsSection = document.getElementById('results-section');
   const errorSection = document.getElementById('error-section');
+  const settingsSection = document.getElementById('settings-section');
   const errorMessage = document.getElementById('error-message');
 
   // Show sections
@@ -19,6 +20,7 @@
     tailorSection.classList.add('hidden');
     resultsSection.classList.add('hidden');
     errorSection.classList.add('hidden');
+    if (settingsSection) settingsSection.classList.add('hidden');
   };
 
   window.showUploadSection = function() {
@@ -28,6 +30,7 @@
     tailorSection.classList.add('hidden');
     resultsSection.classList.add('hidden');
     errorSection.classList.add('hidden');
+    if (settingsSection) settingsSection.classList.add('hidden');
     
     // Save current section state
     chrome.storage.local.set({ currentSection: 'upload' });
@@ -40,6 +43,7 @@
     tailorSection.classList.add('hidden');
     resultsSection.classList.add('hidden');
     errorSection.classList.add('hidden');
+    if (settingsSection) settingsSection.classList.add('hidden');
     
     // Hide upload status if visible
     const uploadStatus = document.getElementById('upload-status');
@@ -59,6 +63,7 @@
     tailorSection.classList.remove('hidden');
     resultsSection.classList.add('hidden');
     errorSection.classList.add('hidden');
+    if (settingsSection) settingsSection.classList.add('hidden');
     
     // Save current section state
     chrome.storage.local.set({ currentSection: 'tailor' });
@@ -82,12 +87,31 @@
     tailorSection.classList.add('hidden');
     resultsSection.classList.remove('hidden');
     errorSection.classList.add('hidden');
+    if (settingsSection) settingsSection.classList.add('hidden');
     
     // Save current section state
     chrome.storage.local.set({ 
       currentSection: 'results',
       lastViewedAt: Date.now()
     });
+  };
+
+  window.showSettingsSection = function() {
+    authSection.classList.add('hidden');
+    uploadSection.classList.add('hidden');
+    readySection.classList.add('hidden');
+    tailorSection.classList.add('hidden');
+    resultsSection.classList.add('hidden');
+    errorSection.classList.add('hidden');
+    if (settingsSection) settingsSection.classList.remove('hidden');
+    
+    // Save current section state
+    chrome.storage.local.set({ currentSection: 'settings' });
+    
+    // Load resumes when showing settings
+    if (typeof window.loadSettingsResumes === 'function') {
+      window.loadSettingsResumes();
+    }
   };
 
   window.showError = function(message) {
@@ -99,15 +123,23 @@
     readySection.classList.add('hidden');
     tailorSection.classList.add('hidden');
     resultsSection.classList.add('hidden');
+    if (settingsSection) settingsSection.classList.add('hidden');
     errorSection.classList.remove('hidden');
   };
 
   window.updateUserInfo = function(user) {
     const userInfo = document.getElementById('user-info');
     const userName = document.getElementById('user-name');
+    const headerMenu = document.getElementById('header-menu');
+    
     if (userInfo && userName) {
       userName.textContent = user.name || user.email;
       userInfo.style.display = 'block';
+    }
+    
+    // Show menu when user is logged in
+    if (headerMenu) {
+      headerMenu.style.display = 'block';
     }
   };
 })();

@@ -5,7 +5,7 @@
   // Get API URL from config, storage, or use default
   window.API_BASE_URL = (typeof EXTENSION_CONFIG !== 'undefined' && EXTENSION_CONFIG.API_BASE_URL) 
     ? EXTENSION_CONFIG.API_BASE_URL 
-    : 'http://localhost:8000';
+    : 'http://localhost:3000';
 
   // Helper to get API base URL (always adds /api if not present)
   window.getApiBaseUrl = function() {
@@ -13,10 +13,28 @@
     return base;
   };
 
+  // Helper function to safely get auth token from storage
+  async function getAuthTokenSafely() {
+    try {
+      // Check if chrome.runtime is still valid
+      if (!chrome.runtime || !chrome.runtime.id) {
+        throw new Error('Extension context invalidated. Please close and reopen the popup.');
+      }
+      const { authToken } = await chrome.storage.local.get(['authToken']);
+      return authToken;
+    } catch (error) {
+      // Check if it's an invalidated context error
+      if (error.message && error.message.includes('Extension context invalidated')) {
+        throw new Error('Extension was reloaded. Please close and reopen the popup to continue.');
+      }
+      throw error;
+    }
+  }
+
   // Standard API response handler
   window.apiRequest = async function(endpoint, options = {}) {
     const requestStartTime = Date.now();
-    const url = window.getApiBaseUrl() + endpoint;
+    let url = window.getApiBaseUrl() + endpoint;
     
     console.log('API Request:', {
     endpoint,
@@ -26,8 +44,8 @@
     });
     
     try {
-      // Get auth token from storage
-      const { authToken } = await chrome.storage.local.get(['authToken']);
+      // Get auth token from storage safely
+      const authToken = await getAuthTokenSafely();
       
       // Add ngrok-skip-browser-warning header for ngrok free tier
       const headers = {
@@ -41,9 +59,13 @@
         headers['Authorization'] = `Bearer ${authToken}`;
       }
       
-      // Check if URL is ngrok and add skip warning header
-      if (url.includes('ngrok-free.app') || url.includes('ngrok-free.dev') || url.includes('ngrok.io')) {
+      // Check if URL is ngrok and add skip warning header (always add for ngrok)
+      if (url.includes('ngrok-free.app') || url.includes('ngrok-free.dev') || url.includes('ngrok.io') || url.includes('ngrok')) {
         headers['ngrok-skip-browser-warning'] = 'true';
+        // Also add as query parameter AFTER the full URL is built
+        if (!url.includes('ngrok-skip-browser-warning')) {
+          url += (url.includes('?') ? '&' : '?') + 'ngrok-skip-browser-warning=true';
+        }
       }
       
       console.log('Making fetch request...', { url, headers });

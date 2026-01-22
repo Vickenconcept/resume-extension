@@ -2,17 +2,66 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=400, initial-scale=1.0">
   <title>Resume Tailor</title>
   <link rel="stylesheet" href="popup.css">
   <script src="config.js"></script>
+  <script src="api-config.js"></script>
+  <style>
+    html, body {
+      width: 400px !important;
+      min-width: 400px !important;
+      height: 600px !important;
+      min-height: 600px !important;
+      max-height: 600px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
+  <div class="popup-wrapper">
+    <div class="container">
     <header class="header">
-      <h1>Resume Tailor</h1>
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <h1 style="margin: 0;">Resume Tailor</h1>
+        <div id="header-menu" style="display: none; position: relative;">
+          <button id="menu-toggle-btn" style="background: none; border: none; cursor: pointer; padding: 5px; display: flex; align-items: center; gap: 5px; color: #6b7280; font-size: 14px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+            Menu
+          </button>
+          <div id="menu-dropdown" class="menu-dropdown hidden">
+            <a href="#" id="menu-home" class="menu-item" data-tooltip="Home">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+            </a>
+            <a href="#" id="menu-last-generated" class="menu-item" data-tooltip="Last Generated Content">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+            </a>
+            <a href="#" id="menu-settings" class="menu-item" data-tooltip="Resume Settings">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"></path>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
       <div id="user-info" style="display: none; font-size: 12px; color: #6b7280; margin-top: 5px;">
-        <span id="user-name"></span> | <a href="#" id="logout-link" style="color: #f97316; cursor: pointer;">Logout</a>
+        <span id="user-name"></span> | <a href="#" id="logout-link" style="color: #3b82f6; cursor: pointer;">Logout</a>
       </div>
     </header>
 
@@ -28,7 +77,7 @@
         <button id="login-btn" class="btn btn-primary">Sign In</button>
         
         <p style="text-align: center; margin-top: 15px; font-size: 14px;">
-          Don't have an account? <a href="#" id="show-register" style="color: #f97316; cursor: pointer;">Sign Up</a>
+          Don't have an account? <a href="#" id="show-register" style="color: #3b82f6; cursor: pointer;">Sign Up</a>
         </p>
       </div>
       
@@ -41,7 +90,7 @@
         <button id="register-btn" class="btn btn-primary">Create Account</button>
         
         <p style="text-align: center; margin-top: 15px; font-size: 14px;">
-          Already have an account? <a href="#" id="show-login" style="color: #f97316; cursor: pointer;">Sign In</a>
+          Already have an account? <a href="#" id="show-login" style="color: #3b82f6; cursor: pointer;">Sign In</a>
         </p>
       </div>
       
@@ -70,85 +119,135 @@
       <button id="upload-btn" class="btn btn-primary" disabled>Upload Resume</button>
     </div>
 
-    <!-- Ready Section (shown after upload) -->
+    <!-- Ready Section (Home Page) -->
     <div id="ready-section" class="section hidden">
-      <div class="status-card success">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-          <polyline points="22 4 12 14.01 9 11.01"></polyline>
-        </svg>
-        <p>Resume uploaded successfully!</p>
+      <!-- Welcome Section -->
+      <div class="home-welcome">
+        <div class="home-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+        </div>
+        <h2 class="home-title">Welcome to Resume Tailor</h2>
+        <p class="home-subtitle">AI-powered resume customization for every job application</p>
       </div>
-      
-      <!-- Resume Info Card -->
-      <div id="resume-info-card" class="resume-info-card" style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-          <div style="flex: 1;">
-            <div style="display: flex; align-items: center; margin-bottom: 5px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px; color: #6b7280;">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
-              <strong id="resume-filename" style="font-size: 14px; color: #111827;"></strong>
-            </div>
-            <div id="resume-upload-date" style="font-size: 12px; color: #6b7280; margin-left: 24px;"></div>
-          </div>
-          <button id="download-resume-btn" class="btn btn-secondary" style="padding: 8px 16px; font-size: 13px; margin-left: 10px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px; vertical-align: middle;">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
+
+      <!-- Stats Cards -->
+      <div class="home-stats">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
             </svg>
-            Download
-          </button>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-resumes">0</div>
+            <div class="stat-label">Resumes</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-generated">0</div>
+            <div class="stat-label">Generated</div>
+          </div>
         </div>
       </div>
-      
-      <div class="instructions">
-        <p>1. Highlight a job description on any job posting</p>
-        <p>2. Right-click → "Tailor resume to this role"</p>
-        <p>3. View your tailored content below</p>
+
+      <!-- Quick Actions -->
+      <div class="home-actions">
+        <button id="home-generate-btn" class="home-action-btn primary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          <span>Generate Tailored Resume</span>
+        </button>
+        <button id="home-settings-btn" class="home-action-btn secondary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"></path>
+          </svg>
+          <span>Manage Resumes</span>
+        </button>
       </div>
-      
-      <button id="settings-btn" class="btn btn-secondary" style="margin-top: 15px; width: 100%;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px; vertical-align: middle;">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"></path>
-        </svg>
-        Upload/Update Resume
-      </button>
+
+      <!-- App Info -->
+      <div class="home-info">
+        <h3>How It Works</h3>
+        <div class="info-steps">
+          <div class="info-step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <strong>Highlight</strong> a job description on any job posting
+            </div>
+          </div>
+          <div class="info-step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <strong>Right-click</strong> → "Tailor resume to this role"
+            </div>
+          </div>
+          <div class="info-step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <strong>View</strong> your tailored content instantly
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Tailor Section -->
     <div id="tailor-section" class="section hidden">
-      <h2>Tailored Content</h2>
+      <div class="tailor-header">
+        <h2>Tailor Your Resume</h2>
+        <p class="tailor-subtitle">Customize your resume to match the job description</p>
+      </div>
       
       <div id="job-description-preview" class="job-preview">
-        <p class="label">Job Description:</p>
+        <div class="job-preview-header">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          <p class="label">Job Description</p>
+        </div>
         <p id="job-text" class="job-text"></p>
       </div>
 
-      <div style="margin: 15px 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-        <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px; color: #374151;">
-          <input type="checkbox" id="generate-freely-toggle" style="margin-right: 8px; cursor: pointer;">
-          <div>
+      <div class="toggle-card">
+        <div class="toggle-content">
+          <div class="toggle-header">
             <strong>100% Match Mode</strong>
-            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">
-              Allow AI to add missing skills/experiences from job description to help you meet 100% of requirements
-            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="generate-freely-toggle">
+              <span class="toggle-slider"></span>
+            </label>
           </div>
-        </label>
+          <p class="toggle-description">
+            Allow AI to add missing skills/experiences from job description to help you meet 100% of requirements
+          </p>
+        </div>
       </div>
 
-      <button id="tailor-btn" class="btn btn-primary">Generate Tailored Content</button>
-      
-      <div id="loading" class="loading hidden">
-        <div class="spinner"></div>
-        <p>Generating your tailored resume content...</p>
-      </div>
+      <button id="tailor-btn" class="btn btn-primary tailor-generate-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+        <span>Generate Tailored Content</span>
+      </button>
     </div>
 
     <!-- Results Section -->
@@ -158,20 +257,57 @@
       <!-- Full Document Preview -->
       <div class="result-card">
         <h3>Tailored Resume</h3>
-        <div id="full-document-content" class="content-box" style="white-space: pre-wrap; font-family: monospace; font-size: 11px;"></div>
-        <button class="btn-copy" data-target="full-document">Copy Resume</button>
+        <textarea id="full-document-content" class="content-box editable-content" style="white-space: pre-wrap; font-family: monospace; font-size: 11px; width: 100%; min-height: 200px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; resize: vertical;"></textarea>
+        <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center;">
+          <button class="btn-copy icon-btn" data-target="full-document" data-tooltip="Copy Resume">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+          <div class="download-dropdown" style="position: relative;">
+            <button class="btn-download icon-btn" data-tooltip="Download Resume">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </button>
+            <div class="download-dropdown-menu hidden">
+              <button class="download-option" data-format="docx" data-target="resume">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <span>Download as DOCX</span>
+              </button>
+              <button class="download-option" data-format="pdf" data-target="resume">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <span>Download as PDF</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Cover Letter -->
       <div class="result-card">
         <h3>Cover Letter</h3>
-        <div id="cover-letter-content" class="content-box" style="white-space: pre-wrap; font-family: monospace; font-size: 11px;"></div>
-        <button class="btn-copy" data-target="cover-letter">Copy Cover Letter</button>
+        <textarea id="cover-letter-content" class="content-box editable-content" style="white-space: pre-wrap; font-family: monospace; font-size: 11px; width: 100%; min-height: 150px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; resize: vertical;"></textarea>
+        <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center;">
+          <button class="btn-copy icon-btn" data-target="cover-letter" data-tooltip="Copy Cover Letter">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div class="actions">
-        <button id="download-docx-btn" class="btn btn-secondary" style="margin-bottom: 10px;">Download Resume as DOCX</button>
-        <button id="download-pdf-btn" class="btn btn-secondary" style="margin-bottom: 10px;">Download Resume as PDF</button>
         <button id="new-tailor-btn" class="btn btn-primary">Tailor Another Role</button>
       </div>
     </div>
@@ -188,11 +324,114 @@
       </div>
       <button id="retry-btn" class="btn btn-primary">Try Again</button>
     </div>
+
+    <!-- Settings Section -->
+    <div id="settings-section" class="section hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0;">Resume Management</h2>
+        <button id="settings-back-btn" class="btn btn-secondary" style="width: auto; padding: 8px 16px;">Back</button>
+      </div>
+
+      <!-- Upload New Resume -->
+      <div class="settings-upload-area" style="margin-bottom: 25px; padding: 20px; background: #f9fafb; border-radius: 12px; border: 2px dashed #d1d5db;">
+        <h3 style="font-size: 16px; margin-bottom: 15px; color: #111827;">Upload New Resume</h3>
+        <div id="settings-upload-box" class="upload-box" style="margin: 0; padding: 20px; background: #ffffff; border: 1px solid #e5e7eb;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #6b7280; margin-bottom: 10px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p style="font-size: 14px; color: #374151; margin: 5px 0;">Click to upload or drag and drop</p>
+          <p class="file-info" style="font-size: 12px; color: #6b7280;">PDF or DOCX (max 5MB)</p>
+          <input type="file" id="settings-resume-file" accept=".pdf,.doc,.docx" style="display: none;">
+        </div>
+        <div id="settings-upload-status" class="upload-status hidden" style="margin-top: 10px;"></div>
+      </div>
+
+      <!-- Resumes List -->
+      <div>
+        <h3 style="font-size: 16px; margin-bottom: 15px; color: #111827;">Your Resumes</h3>
+        <div id="settings-resumes-list-container">
+          <div class="resumes-table-wrapper">
+            <table class="resumes-table" id="settings-resumes-table">
+              <thead>
+                <tr>
+                  <th style="width: 5%;">
+                    <input type="checkbox" id="select-all-checkbox" style="cursor: pointer;" title="Select All">
+                  </th>
+                  <th style="width: 5%;">Default</th>
+                  <th style="width: 25%;">Name</th>
+                  <th style="width: 20%;">Filename</th>
+                  <th style="width: 15%;">Uploaded</th>
+                  <th style="width: 30%;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="settings-resumes-tbody">
+                <!-- Resumes will be loaded here -->
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Bulk Actions -->
+          <div id="bulk-actions" class="bulk-actions hidden" style="margin-top: 15px; padding: 12px; background: #f9fafb; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <span id="selected-count" style="font-size: 14px; color: #374151; font-weight: 500;"></span>
+            <button id="bulk-delete-btn" class="icon-btn danger" data-tooltip="Delete Selected">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+            </button>
+          </div>
+          
+          <!-- Pagination -->
+          <div id="settings-pagination" class="pagination hidden" style="margin-top: 15px; display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 8px;">
+            <div id="pagination-info" style="font-size: 13px; color: #6b7280;"></div>
+            <div style="display: flex; gap: 8px;">
+              <button id="pagination-prev" class="icon-btn" data-tooltip="Previous Page" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+              <button id="pagination-next" class="icon-btn" data-tooltip="Next Page" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="empty-state hidden" id="settings-empty-state" style="text-align: center; padding: 40px 20px; color: #6b7280;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5; margin: 0 auto 15px;">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <p>No resumes uploaded yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading" class="loading-overlay hidden">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <p>Generating your tailored resume content...</p>
+    </div>
   </div>
 
   <script src="api.js"></script>
   <script src="ui.js"></script>
   <script src="auth.js"></script>
+  <script src="state-manager.js"></script>
+  <script src="tailor-handler.js"></script>
+  <script src="download-handler.js"></script>
+  <script src="settings-popup.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
