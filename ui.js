@@ -21,6 +21,16 @@
     resultsSection.classList.add('hidden');
     errorSection.classList.add('hidden');
     if (settingsSection) settingsSection.classList.add('hidden');
+    
+    // Hide header menu and user info when showing auth section
+    const headerMenu = document.getElementById('header-menu');
+    const userInfo = document.getElementById('user-info');
+    if (headerMenu) {
+      headerMenu.style.display = 'none';
+    }
+    if (userInfo) {
+      userInfo.style.display = 'none';
+    }
   };
 
   window.showUploadSection = function() {

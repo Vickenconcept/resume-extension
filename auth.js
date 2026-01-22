@@ -181,11 +181,39 @@
       }
       await chrome.storage.local.remove(['authToken', 'user', 'resumeId']);
       const userInfo = document.getElementById('user-info');
+      const headerMenu = document.getElementById('header-menu');
       if (userInfo) {
         userInfo.style.display = 'none';
+      }
+      if (headerMenu) {
+        headerMenu.style.display = 'none';
       }
       window.showAuthSection();
     });
   }
+
+  // Password visibility toggle
+  const passwordToggles = document.querySelectorAll('.password-toggle');
+  passwordToggles.forEach(toggle => {
+    toggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = toggle.getAttribute('data-target');
+      const passwordInput = document.getElementById(targetId);
+      const eyeOpen = toggle.querySelector('.eye-open');
+      const eyeClosed = toggle.querySelector('.eye-closed');
+      
+      if (passwordInput) {
+        if (passwordInput.type === 'password') {
+          passwordInput.type = 'text';
+          if (eyeOpen) eyeOpen.style.display = 'none';
+          if (eyeClosed) eyeClosed.style.display = 'block';
+        } else {
+          passwordInput.type = 'password';
+          if (eyeOpen) eyeOpen.style.display = 'block';
+          if (eyeClosed) eyeClosed.style.display = 'none';
+        }
+      }
+    });
+  });
   };
 })();
