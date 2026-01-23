@@ -4,6 +4,10 @@ let editingResumeId = null;
 let currentPage = 1;
 let totalPages = 1;
 let selectedResumeIds = new Set();
+let currentVersionsPage = 1;
+let versionsTotalPages = 1;
+let activeTab = 'resumes'; // 'resumes' or 'versions'
+let selectedVersionIds = new Set();
 
 // Helper function to safely handle Chrome storage operations
 async function safeChromeStorage(operation, ...args) {
@@ -29,6 +33,62 @@ async function safeChromeStorage(operation, ...args) {
   }
 }
 
+// Tab switching
+const tabResumes = document.getElementById('tab-resumes');
+const tabVersions = document.getElementById('tab-versions');
+const tabResumesContent = document.getElementById('tab-resumes-content');
+const tabVersionsContent = document.getElementById('tab-versions-content');
+
+if (tabResumes && tabVersions) {
+  tabResumes.addEventListener('click', () => {
+    switchTab('resumes');
+  });
+  
+  tabVersions.addEventListener('click', () => {
+    switchTab('versions');
+  });
+}
+
+window.switchTab = function(tab) {
+  activeTab = tab;
+  
+  if (tab === 'resumes') {
+    if (tabResumes) {
+      tabResumes.classList.add('active');
+      tabResumes.style.borderBottomColor = '#3b82f6';
+      tabResumes.style.color = '#3b82f6';
+    }
+    if (tabVersions) {
+      tabVersions.classList.remove('active');
+      tabVersions.style.borderBottomColor = 'transparent';
+      tabVersions.style.color = '#6b7280';
+    }
+    if (tabResumesContent) tabResumesContent.classList.remove('hidden');
+    if (tabVersionsContent) tabVersionsContent.classList.add('hidden');
+    
+    // Load resumes if not already loaded
+    if (document.getElementById('settings-resumes-tbody')?.children.length === 0) {
+      window.loadSettingsResumes();
+    }
+  } else {
+    if (tabVersions) {
+      tabVersions.classList.add('active');
+      tabVersions.style.borderBottomColor = '#3b82f6';
+      tabVersions.style.color = '#3b82f6';
+    }
+    if (tabResumes) {
+      tabResumes.classList.remove('active');
+      tabResumes.style.borderBottomColor = 'transparent';
+      tabResumes.style.color = '#6b7280';
+    }
+    if (tabVersionsContent) tabVersionsContent.classList.remove('hidden');
+    if (tabResumesContent) tabResumesContent.classList.add('hidden');
+    
+    // Load versions
+    window.loadSettingsVersions();
+  }
+};
+
 // Load resumes for settings section
 window.loadSettingsResumes = async function(page = 1) {
   try {
@@ -47,6 +107,25 @@ window.loadSettingsResumes = async function(page = 1) {
   } catch (error) {
     console.error('Load resumes error:', error);
     showSettingsError('Failed to load resumes: ' + error.message);
+  }
+};
+
+// Load resume versions for settings section
+window.loadSettingsVersions = async function(page = 1) {
+  try {
+    currentVersionsPage = page;
+    const response = await window.apiRequest(`/resume-versions?page=${page}&limit=10`, {
+      method: 'GET',
+    });
+
+    if (response.success && response.data) {
+      displaySettingsVersions(response.data.versions || response.data, response.data.pagination);
+    } else {
+      showSettingsError('Failed to load resume versions');
+    }
+  } catch (error) {
+    console.error('Load versions error:', error);
+    showSettingsError('Failed to load resume versions: ' + error.message);
   }
 };
 
@@ -380,6 +459,358 @@ async function deleteResume(resumeId, displayName) {
     console.error('Delete error:', error);
     showSettingsError('Failed to delete resume: ' + error.message);
   }
+}
+
+function displaySettingsVersions(versions, pagination) {
+  const table = document.getElementById('settings-versions-table');
+  const tbody = document.getElementById('settings-versions-tbody');
+  const emptyState = document.getElementById('settings-versions-empty-state');
+  const paginationContainer = document.getElementById('versions-pagination');
+  const bulkActions = document.getElementById('versions-bulk-actions');
+
+  if (!versions || versions.length === 0) {
+    if (table) table.style.display = 'none';
+    if (emptyState) emptyState.classList.remove('hidden');
+    if (paginationContainer) paginationContainer.classList.add('hidden');
+    if (bulkActions) bulkActions.classList.add('hidden');
+    selectedVersionIds.clear();
+    return;
+  }
+
+  if (table) table.style.display = 'table';
+  if (emptyState) emptyState.classList.add('hidden');
+  if (tbody) tbody.innerHTML = '';
+
+  versions.forEach(version => {
+    const row = createSettingsVersionRow(version);
+    if (tbody) tbody.appendChild(row);
+  });
+
+  // Update bulk actions and select all checkbox
+  updateVersionsBulkDeleteButton();
+  updateVersionsSelectAllCheckbox();
+
+  // Update pagination
+  if (pagination) {
+    versionsTotalPages = pagination.totalPages || 1;
+    updateVersionsPagination(pagination);
+  }
+}
+
+function updateVersionsPagination(pagination) {
+  const paginationContainer = document.getElementById('versions-pagination');
+  const paginationInfo = document.getElementById('versions-pagination-info');
+  const prevBtn = document.getElementById('versions-pagination-prev');
+  const nextBtn = document.getElementById('versions-pagination-next');
+
+  if (paginationContainer) {
+    paginationContainer.classList.remove('hidden');
+  }
+
+  if (paginationInfo) {
+    const start = ((pagination.page - 1) * pagination.limit) + 1;
+    const end = Math.min(pagination.page * pagination.limit, pagination.total);
+    paginationInfo.textContent = `Showing ${start}-${end} of ${pagination.total}`;
+  }
+
+  if (prevBtn) {
+    prevBtn.disabled = !pagination.hasPrev;
+    prevBtn.onclick = () => {
+      if (pagination.hasPrev) {
+        window.loadSettingsVersions(pagination.page - 1);
+      }
+    };
+  }
+
+  if (nextBtn) {
+    nextBtn.disabled = !pagination.hasNext;
+    nextBtn.onclick = () => {
+      if (pagination.hasNext) {
+        window.loadSettingsVersions(pagination.page + 1);
+      }
+    };
+  }
+}
+
+function createSettingsVersionRow(version) {
+  const tr = document.createElement('tr');
+  tr.id = `settings-version-${version.versionId}`;
+
+  // Checkbox column
+  const checkboxCell = document.createElement('td');
+  checkboxCell.style.textAlign = 'center';
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.value = version.versionId;
+  checkbox.style.cursor = 'pointer';
+  checkbox.checked = selectedVersionIds.has(version.versionId);
+  checkbox.addEventListener('change', (e) => {
+    if (e.target.checked) {
+      selectedVersionIds.add(version.versionId);
+    } else {
+      selectedVersionIds.delete(version.versionId);
+    }
+    updateVersionsBulkDeleteButton();
+    updateVersionsSelectAllCheckbox();
+  });
+  checkboxCell.appendChild(checkbox);
+  tr.appendChild(checkboxCell);
+
+  // Resume column
+  const resumeCell = document.createElement('td');
+  resumeCell.style.fontWeight = '500';
+  resumeCell.textContent = version.resumeName;
+  tr.appendChild(resumeCell);
+
+  // Version Name column
+  const versionNameCell = document.createElement('td');
+  versionNameCell.textContent = version.versionName;
+  tr.appendChild(versionNameCell);
+
+  // Status column
+  const statusCell = document.createElement('td');
+  if (version.isCurrent) {
+    const currentBadge = document.createElement('span');
+    currentBadge.className = 'default-badge';
+    currentBadge.textContent = 'Current';
+    currentBadge.style.background = '#10b981';
+    statusCell.appendChild(currentBadge);
+  } else {
+    statusCell.textContent = '—';
+    statusCell.style.color = '#9ca3af';
+  }
+  tr.appendChild(statusCell);
+
+  // Created date column
+  const createdCell = document.createElement('td');
+  createdCell.textContent = formatDate(version.createdAt);
+  tr.appendChild(createdCell);
+
+  // Updated date column
+  const updatedCell = document.createElement('td');
+  updatedCell.textContent = formatDate(version.updatedAt);
+  tr.appendChild(updatedCell);
+
+  // Actions column
+  const actionsCell = document.createElement('td');
+  actionsCell.className = 'resume-actions-cell';
+
+  // Promote to main button (only show if not already current)
+  if (!version.isCurrent) {
+    const promoteBtn = document.createElement('button');
+    promoteBtn.className = 'icon-btn primary';
+    promoteBtn.setAttribute('data-tooltip', 'Promote to Main Resume');
+    promoteBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>
+    `;
+    promoteBtn.addEventListener('click', () => promoteVersionToMain(version.versionId, version.versionName));
+    actionsCell.appendChild(promoteBtn);
+  }
+
+  // Download buttons
+  if (version.hasDocx || version.hasPdf) {
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'icon-btn';
+    downloadBtn.setAttribute('data-tooltip', 'Download');
+    downloadBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+    `;
+    downloadBtn.addEventListener('click', () => downloadVersion(version));
+    actionsCell.appendChild(downloadBtn);
+  }
+
+  // Delete button
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'icon-btn danger';
+  deleteBtn.setAttribute('data-tooltip', 'Delete');
+  deleteBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      <line x1="10" y1="11" x2="10" y2="17"></line>
+      <line x1="14" y1="11" x2="14" y2="17"></line>
+    </svg>
+  `;
+  deleteBtn.addEventListener('click', () => deleteVersion(version.versionId, version.versionName));
+  actionsCell.appendChild(deleteBtn);
+
+  tr.appendChild(actionsCell);
+
+  return tr;
+}
+
+async function promoteVersionToMain(versionId, versionName) {
+  const displayName = versionName || `Version ${versionId}`;
+  if (!confirm(`Are you sure you want to promote "${displayName}" to the main resume? This will replace the current main resume content.`)) {
+    return;
+  }
+
+  try {
+    const response = await window.apiRequest('/promote-version-to-main', {
+      method: 'POST',
+      body: JSON.stringify({ versionId }),
+    });
+
+    if (response.success) {
+      await window.loadSettingsVersions(currentVersionsPage);
+      showSettingsSuccess(`"${displayName}" promoted to main resume successfully`);
+    } else {
+      showSettingsError(response.error || 'Failed to promote version');
+    }
+  } catch (error) {
+    console.error('Promote version error:', error);
+    showSettingsError('Failed to promote version: ' + error.message);
+  }
+}
+
+async function downloadVersion(version) {
+  try {
+    // Use download URLs from version data
+    const downloadUrls = version.downloadUrls || {};
+    const docxUrl = downloadUrls.docx;
+    const pdfUrl = downloadUrls.pdf;
+
+    // Prefer PDF, fallback to DOCX
+    const url = pdfUrl || docxUrl;
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      showSettingsError('Download URL not available for this version');
+    }
+  } catch (error) {
+    console.error('Download version error:', error);
+    showSettingsError('Failed to download version: ' + error.message);
+  }
+}
+
+async function deleteVersion(versionId, versionName) {
+  const displayName = versionName || `Version ${versionId}`;
+  if (!confirm(`Are you sure you want to delete "${displayName}"? This action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    const response = await window.apiRequest('/delete-resume-version', {
+      method: 'POST',
+      body: JSON.stringify({ versionId }),
+    });
+
+    if (response.success) {
+      selectedVersionIds.delete(versionId);
+      await window.loadSettingsVersions(currentVersionsPage);
+      showSettingsSuccess(`"${displayName}" deleted successfully`);
+    } else {
+      showSettingsError(response.error || 'Failed to delete version');
+    }
+  } catch (error) {
+    console.error('Delete version error:', error);
+    showSettingsError('Failed to delete version: ' + error.message);
+  }
+}
+
+function updateVersionsBulkDeleteButton() {
+  const bulkActions = document.getElementById('versions-bulk-actions');
+  const selectedCount = document.getElementById('versions-selected-count');
+  const bulkDeleteBtn = document.getElementById('versions-bulk-delete-btn');
+
+  if (selectedVersionIds.size > 0) {
+    if (bulkActions) bulkActions.classList.remove('hidden');
+    if (selectedCount) {
+      selectedCount.textContent = `${selectedVersionIds.size} version${selectedVersionIds.size > 1 ? 's' : ''} selected`;
+    }
+  } else {
+    if (bulkActions) bulkActions.classList.add('hidden');
+  }
+}
+
+function updateVersionsSelectAllCheckbox() {
+  const selectAllCheckbox = document.getElementById('select-all-versions-checkbox');
+  if (!selectAllCheckbox) return;
+
+  const checkboxes = document.querySelectorAll('#settings-versions-tbody input[type="checkbox"]');
+  const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+  
+  if (checkedCount === 0) {
+    selectAllCheckbox.indeterminate = false;
+    selectAllCheckbox.checked = false;
+  } else if (checkedCount === checkboxes.length) {
+    selectAllCheckbox.indeterminate = false;
+    selectAllCheckbox.checked = true;
+  } else {
+    selectAllCheckbox.indeterminate = true;
+  }
+}
+
+// Select all versions checkbox handler
+const selectAllVersionsCheckbox = document.getElementById('select-all-versions-checkbox');
+if (selectAllVersionsCheckbox) {
+  selectAllVersionsCheckbox.addEventListener('change', (e) => {
+    const checkboxes = document.querySelectorAll('#settings-versions-tbody input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = e.target.checked;
+      const versionId = parseInt(checkbox.value);
+      if (e.target.checked) {
+        selectedVersionIds.add(versionId);
+      } else {
+        selectedVersionIds.delete(versionId);
+      }
+    });
+    updateVersionsBulkDeleteButton();
+  });
+}
+
+// Bulk delete versions handler
+const versionsBulkDeleteBtn = document.getElementById('versions-bulk-delete-btn');
+if (versionsBulkDeleteBtn) {
+  versionsBulkDeleteBtn.addEventListener('click', async () => {
+    if (selectedVersionIds.size === 0) return;
+
+    const count = selectedVersionIds.size;
+    if (!confirm(`Are you sure you want to delete ${count} version${count > 1 ? 's' : ''}? This action cannot be undone.`)) {
+      return;
+    }
+
+    const versionIds = Array.from(selectedVersionIds);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const versionId of versionIds) {
+      try {
+        const response = await window.apiRequest('/delete-resume-version', {
+          method: 'POST',
+          body: JSON.stringify({ versionId }),
+        });
+
+        if (response.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (error) {
+        console.error('Delete version error:', error);
+        failCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      selectedVersionIds.clear();
+      await window.loadSettingsVersions(currentVersionsPage);
+      
+      if (failCount === 0) {
+        showSettingsSuccess(`${successCount} version${successCount > 1 ? 's' : ''} deleted successfully`);
+      } else {
+        showSettingsError(`${successCount} deleted, ${failCount} failed`);
+      }
+    } else if (failCount > 0) {
+      showSettingsError(`Failed to delete ${failCount} version${failCount > 1 ? 's' : ''}`);
+    }
+  });
 }
 
 function formatDate(dateString) {

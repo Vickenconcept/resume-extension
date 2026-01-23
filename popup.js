@@ -415,14 +415,14 @@ async function init() {
     // New job description selected - show tailor section
     console.log('Job description found, showing tailor section...');
     jobText.textContent = checkSelected;
-    window.showTailorSection();
+      window.showTailorSection();
     chrome.storage.local.remove(['selectedJobDescription']);
-    if (loading) {
-      loading.classList.add('hidden');
-    }
-    if (tailorBtn) {
-      tailorBtn.disabled = false;
-    }
+      if (loading) {
+        loading.classList.add('hidden');
+      }
+      if (tailorBtn) {
+        tailorBtn.disabled = false;
+      }
     return;
   }
   
@@ -740,7 +740,7 @@ async function loadResumeInfo() {
     if (!authToken) {
       return; // Not authenticated
     }
-
+    
     // Fetch all resumes to get stats
     const resumesResponse = await window.apiRequest('/resumes?page=1&limit=100');
     const { lastResults } = await chrome.storage.local.get(['lastResults']);
@@ -951,9 +951,15 @@ if (tailorBtn) {
       }
 
       // Set operation state for persistence and clear old results
+      // Store jobDescription and generateFreely for potential regeneration
+      const generateFreelyToggle = document.getElementById('generate-freely-toggle');
+      const generateFreely = generateFreelyToggle ? generateFreelyToggle.checked : false;
+      
       await chrome.storage.local.set({ 
         operationState: 'tailoring',
         pendingJobDescription: jobDescription,
+        jobDescription: jobDescription, // Store for regeneration
+        generateFreely: generateFreely, // Store for regeneration
         currentSection: 'tailor', // Update section to tailor (not results)
         // Don't clear lastResults yet - we'll update it after successful generation
       });
@@ -985,12 +991,12 @@ if (tailorBtn) {
         console.error('API request is taking longer than 10 seconds...');
         console.error('This might indicate the request is hanging or the backend is slow');
       }, 10000);
-
-      // Get generate freely toggle value
-      const generateFreelyToggle = document.getElementById('generate-freely-toggle');
-      const generateFreely = generateFreelyToggle ? generateFreelyToggle.checked : false;
       
       try {
+        // Get generate freely from storage (already stored above)
+        const { generateFreely: storedGenerateFreely } = await chrome.storage.local.get(['generateFreely']);
+        const generateFreely = storedGenerateFreely !== undefined ? storedGenerateFreely : false;
+        
         const response = await window.apiRequest(`/tailor-resume`, {
           method: 'POST',
           body: JSON.stringify({
@@ -1028,14 +1034,14 @@ if (tailorBtn) {
               if (window.StateManager && typeof window.StateManager.clearGenerationState === 'function') {
                 await window.StateManager.clearGenerationState();
               } else {
-                await chrome.storage.local.set({
-                  operationState: null,
-                  pendingJobDescription: null,
+          await chrome.storage.local.set({ 
+            operationState: null,
+            pendingJobDescription: null,
                 });
               }
               await chrome.storage.local.set({
-                savedJobDescription: jobDescription // Save the job description for this result
-              });
+            savedJobDescription: jobDescription // Save the job description for this result
+          });
           
           window.showResultsSection();
           console.log('Results displayed successfully');
@@ -1054,14 +1060,14 @@ if (tailorBtn) {
           error: error
         });
         
-             // Clear operation state on error
+        // Clear operation state on error
              if (window.StateManager && typeof window.StateManager.clearGenerationState === 'function') {
                await window.StateManager.clearGenerationState();
              } else {
-               await chrome.storage.local.set({
-                 operationState: null,
+        await chrome.storage.local.set({ 
+          operationState: null,
                  pendingJobDescription: null,
-               });
+        });
              }
         window.showError(error.message);
       } finally {
@@ -1108,18 +1114,27 @@ if (tailorBtn) {
 
 // Display results
 async function displayResults(data) {
+  console.log('Displaying results:', {
+    hasFullResume: !!data.fullResume,
+    hasFullDocument: !!data.fullDocument,
+    hasCoverLetter: !!data.coverLetter,
+    dataKeys: Object.keys(data)
+  });
+
   // Full Resume Preview (backend returns 'fullResume', not 'fullDocument')
   const fullResumeText = data.fullResume || data.fullDocument || '';
-  if (fullResumeText) {
+  if (fullResumeText && fullResumeText.trim().length > 0) {
     fullDocumentContent.value = fullResumeText;
   } else {
+    console.error('No resume text found in response');
     fullDocumentContent.value = 'Resume not available';
   }
 
   // Cover Letter
-  if (data.coverLetter) {
+  if (data.coverLetter && data.coverLetter.trim().length > 0) {
     coverLetterContent.value = data.coverLetter;
   } else {
+    console.error('No cover letter found in response');
     coverLetterContent.value = 'Cover letter not available';
   }
 
@@ -1136,6 +1151,19 @@ async function displayResults(data) {
     downloadUrls: data.downloadUrls || null
   });
   
+  // Display quality scores and similarity metrics if available
+  if (typeof window.displayQualityScores === 'function' && data.qualityScore && data.similarityMetrics) {
+    window.displayQualityScores(data.qualityScore, data.similarityMetrics);
+  }
+
+  // Setup regenerate button handler
+  const regenerateBtn = document.getElementById('regenerate-btn');
+  if (regenerateBtn) {
+    regenerateBtn.onclick = async () => {
+      await handleRegenerate(data);
+    };
+  }
+  
   console.log('=== DOWNLOAD URLS STORED ===');
   console.log('Stored in chrome.storage.local:');
   console.log('  - downloadUrls (top level):', data.downloadUrls);
@@ -1143,7 +1171,131 @@ async function displayResults(data) {
   console.log('Cloudinary folder: tailored-resumes');
 }
 
-// Copy buttons (updated for icon buttons)
+// Handle regenerate button click
+async function handleRegenerate(currentData) {
+  try {
+    const regenerateBtn = document.getElementById('regenerate-btn');
+    if (regenerateBtn) {
+      regenerateBtn.disabled = true;
+      regenerateBtn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        <span>Regenerating...</span>
+      `;
+    }
+
+    // Show loading overlay
+    if (loading) {
+      loading.classList.remove('hidden');
+      const loadingText = loading.querySelector('p');
+      if (loadingText) {
+        loadingText.textContent = 'Regenerating resume to achieve 98-100% match...';
+      }
+    }
+
+    // Get current data
+    const { resumeId } = await chrome.storage.local.get(['resumeId']);
+    const { jobDescription, generateFreely } = await chrome.storage.local.get(['jobDescription', 'generateFreely']);
+    
+    if (!resumeId || !jobDescription) {
+      // Try to get from current results
+      const storedResults = await chrome.storage.local.get(['lastResults']);
+      if (storedResults.lastResults) {
+        // Extract from stored results if available
+        throw new Error('Please generate a resume first before regenerating');
+      } else {
+        throw new Error('Missing resume ID or job description');
+      }
+    }
+
+    // Get missing keywords from current results - filter out noise words
+    const allMissingKeywords = currentData.similarityMetrics?.missingKeywords || [];
+    const matchedKeywords = currentData.similarityMetrics?.matchedKeywords || [];
+    const noiseWords = ['intern', 'posted', 'save', 'share', 'apply', 'days', 'ago', 'united', 'states', 'work', 'home', 'part', 'time', 'hours', 'week', 'authorization', 'required', 'open', 'candidates', 'opt', 'cpt'];
+    const missingKeywords = allMissingKeywords.filter(kw => {
+      const lower = kw.toLowerCase();
+      return !noiseWords.some(noise => lower.includes(noise)) && kw.length > 2;
+    }).slice(0, 30); // Limit to top 30 most important
+    
+    const currentResumeText = fullDocumentContent?.value || '';
+
+    console.log('Regenerating with missing keywords:', missingKeywords);
+    console.log('Preserving matched keywords:', matchedKeywords);
+    console.log('Total missing keywords:', allMissingKeywords.length, 'Filtered:', missingKeywords.length);
+
+    // Call regenerate endpoint
+    const response = await window.apiRequest('/regenerate-resume', {
+      method: 'POST',
+      body: JSON.stringify({
+        resumeId,
+        jobDescription,
+        generateFreely: generateFreely === true || generateFreely === 'true',
+        missingKeywords,
+        matchedKeywords, // Pass matched keywords to preserve them
+        currentResumeText,
+      }),
+    });
+
+    if (response.success && response.data) {
+      // Update results with regenerated content
+      await displayResults(response.data);
+      
+      // Show success message
+      if (window.showToast) {
+        window.showToast('Resume regenerated successfully! Match score improved.', 'success');
+      }
+
+      // Hide loading
+      if (loading) {
+        loading.classList.add('hidden');
+      }
+
+      // Reset button
+      if (regenerateBtn) {
+        regenerateBtn.disabled = false;
+        regenerateBtn.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span>Regenerate</span>
+        `;
+      }
+    } else {
+      throw new Error(response.error || 'Failed to regenerate resume');
+    }
+  } catch (error) {
+    console.error('Regenerate error:', error);
+    if (window.showToast) {
+      window.showToast('Failed to regenerate resume: ' + error.message, 'error');
+    }
+    
+    // Hide loading
+    if (loading) {
+      loading.classList.add('hidden');
+    }
+
+    // Reset button
+    const regenerateBtn = document.getElementById('regenerate-btn');
+    if (regenerateBtn) {
+      regenerateBtn.disabled = false;
+      regenerateBtn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        <span>Regenerate</span>
+      `;
+    }
+  }
+}
+
+// Copy buttons (updated for icon buttons with clipboard fallback)
 document.querySelectorAll('.btn-copy').forEach(btn => {
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1153,17 +1305,16 @@ document.querySelectorAll('.btn-copy').forEach(btn => {
 
     switch (target) {
       case 'full-document':
-        text = fullDocumentContent.value;
+        text = fullDocumentContent?.value || '';
         break;
       case 'cover-letter':
-        text = coverLetterContent.value;
+        text = coverLetterContent?.value || '';
         break;
     }
 
     if (!text) return;
 
-    navigator.clipboard.writeText(text).then(() => {
-      // Show feedback with checkmark icon
+    const showCopiedFeedback = () => {
       const originalHTML = btn.innerHTML;
       btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
       btn.style.color = '#10b981';
@@ -1171,9 +1322,50 @@ document.querySelectorAll('.btn-copy').forEach(btn => {
         btn.innerHTML = originalHTML;
         btn.style.color = '';
       }, 2000);
+    };
+
+    // Prefer modern clipboard API when available
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        showCopiedFeedback();
     }).catch(err => {
-      console.error('Failed to copy:', err);
-    });
+        console.error('navigator.clipboard.writeText failed, falling back to execCommand:', err);
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (successful) {
+            showCopiedFeedback();
+          }
+        } catch (fallbackErr) {
+          console.error('Fallback copy failed:', fallbackErr);
+        }
+      });
+    } else {
+      // Fallback for environments without navigator.clipboard
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          showCopiedFeedback();
+        }
+      } catch (err) {
+        console.error('Copy not supported in this environment:', err);
+      }
+    }
   });
 });
 
@@ -1188,12 +1380,12 @@ if (downloadBtn && downloadDropdown) {
     e.stopPropagation();
     downloadDropdown.classList.toggle('hidden');
   });
-
+  
   // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
     if (!downloadBtn.contains(e.target) && !downloadDropdown.contains(e.target)) {
       downloadDropdown.classList.add('hidden');
-    }
+  }
   });
 
   // Handle download option clicks
@@ -1215,9 +1407,9 @@ if (downloadBtn && downloadDropdown) {
         } finally {
           // Remove loading state
           downloadBtn.classList.remove('loading');
-          downloadBtn.disabled = false;
+      downloadBtn.disabled = false;
           downloadBtn.innerHTML = originalHTML;
-        }
+    }
       } else {
         await downloadTailoredResume(format);
       }
@@ -1346,7 +1538,7 @@ if (menuHome) {
             loadResumeInfo();
           }
         } else {
-          window.showUploadSection();
+    window.showUploadSection();
         }
       } catch (error) {
         console.error('Failed to fetch resume:', error);
@@ -1637,6 +1829,31 @@ if (window.self !== window.top) {
     window.parent.postMessage({ action: 'closePopup' }, '*');
   };
 }
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  // ESC to close popup (only if in iframe mode)
+  if (e.key === 'Escape' && window.self !== window.top) {
+    window.closePopup();
+    e.preventDefault();
+  }
+  
+  // Ctrl/Cmd + Enter to submit forms (if focus is on input)
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    const activeElement = document.activeElement;
+    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+      // Find the nearest form or submit button
+      const form = activeElement.closest('form');
+      if (form) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn && !submitBtn.disabled) {
+          submitBtn.click();
+          e.preventDefault();
+        }
+      }
+    }
+  }
+});
 
 // Listen for storage changes (when context menu is used)
 chrome.storage.onChanged.addListener((changes) => {

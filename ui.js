@@ -118,8 +118,13 @@
     // Save current section state
     chrome.storage.local.set({ currentSection: 'settings' });
     
-    // Load resumes when showing settings
-    if (typeof window.loadSettingsResumes === 'function') {
+    // Initialize tabs to resumes tab
+    const tabResumes = document.getElementById('tab-resumes');
+    const tabVersions = document.getElementById('tab-versions');
+    if (tabResumes && tabVersions && typeof switchTab === 'function') {
+      switchTab('resumes');
+    } else if (typeof window.loadSettingsResumes === 'function') {
+      // Fallback: just load resumes if tabs not ready
       window.loadSettingsResumes();
     }
   };

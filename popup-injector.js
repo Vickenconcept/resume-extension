@@ -127,4 +127,22 @@
     }
     return true;
   });
+
+  // Keyboard shortcuts - ESC to close
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape' && container.style.display !== 'none') {
+      closePopup();
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
+  document.addEventListener('keydown', handleKeyDown);
+
+  // Clean up event listener when popup is removed
+  const originalClosePopup = closePopup;
+  closePopup = () => {
+    document.removeEventListener('keydown', handleKeyDown);
+    originalClosePopup();
+  };
 })();

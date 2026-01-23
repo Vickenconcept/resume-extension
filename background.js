@@ -125,7 +125,7 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     if (sender.tab?.id) {
       try {
         await chrome.tabs.sendMessage(sender.tab.id, { action: "closePopup" });
-        sendResponse({ success: true });
+    sendResponse({ success: true });
       } catch (error) {
         console.error('Failed to send close message:', error);
         sendResponse({ success: false, error: error.message });
