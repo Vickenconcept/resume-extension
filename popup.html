@@ -369,7 +369,7 @@
       <div class="result-card">
         <h3>Tailored Resume</h3>
         <textarea id="full-document-content" class="content-box editable-content" style="white-space: pre-wrap; font-family: monospace; font-size: 11px; width: 100%; min-height: 200px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; resize: vertical;"></textarea>
-        <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center;">
+        <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
           <button class="btn-copy icon-btn" data-target="full-document" data-tooltip="Copy Resume">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -398,6 +398,30 @@
                   <polyline points="14 2 14 8 20 8"></polyline>
                 </svg>
                 <span>Download as PDF</span>
+              </button>
+            </div>
+          </div>
+          <div class="template-menu-dropdown" style="position: relative;">
+            <button class="btn-more icon-btn" data-tooltip="More Options">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="1"></circle>
+                <circle cx="12" cy="5" r="1"></circle>
+                <circle cx="12" cy="19" r="1"></circle>
+              </svg>
+            </button>
+            <div class="template-menu hidden" style="position: absolute; top: 100%; right: 0; margin-top: 8px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); min-width: 180px; z-index: 1000;">
+              <div style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; font-weight: 600; color: #6b7280;">Template</div>
+              <button class="template-option-menu" data-template="classic" style="width: 100%; padding: 10px 12px; text-align: left; border: none; background: none; cursor: pointer; font-size: 13px; color: #111827; transition: background 0.2s; display: flex; align-items: center; justify-content: space-between;">
+                <span>Classic</span>
+                <span style="font-size: 11px; color: #6b7280;">ATS-safe</span>
+              </button>
+              <button class="template-option-menu" data-template="modern" style="width: 100%; padding: 10px 12px; text-align: left; border: none; background: none; cursor: pointer; font-size: 13px; color: #111827; transition: background 0.2s; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6;">
+                <span>Modern</span>
+                <span style="font-size: 11px; color: #6b7280;">Contemporary</span>
+              </button>
+              <button class="template-option-menu" data-template="compact" style="width: 100%; padding: 10px 12px; text-align: left; border: none; background: none; cursor: pointer; font-size: 13px; color: #111827; transition: background 0.2s; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6;">
+                <span>Compact</span>
+                <span style="font-size: 11px; color: #6b7280;">One-page</span>
               </button>
             </div>
           </div>
@@ -457,6 +481,26 @@
           <input type="file" id="settings-resume-file" accept=".pdf,.doc,.docx" style="display: none;">
         </div>
         <div id="settings-upload-status" class="upload-status hidden" style="margin-top: 10px;"></div>
+      </div>
+
+      <!-- Template Selection -->
+      <div class="template-selection" style="margin-bottom: 25px; padding: 20px; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb;">
+        <h3 style="font-size: 16px; margin-bottom: 15px; color: #111827;">Resume Template</h3>
+        <p style="font-size: 13px; color: #6b7280; margin-bottom: 15px;">Choose your default template style. This will be used for all resume downloads and previews.</p>
+        <div class="template-options" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+          <button class="template-option" data-template="classic" style="padding: 16px; border: 2px solid #e5e7eb; border-radius: 8px; background: #ffffff; cursor: pointer; text-align: center; transition: all 0.2s;">
+            <div style="font-weight: 600; margin-bottom: 8px; color: #111827;">Classic</div>
+            <div style="font-size: 12px; color: #6b7280;">ATS-safe, traditional</div>
+          </button>
+          <button class="template-option" data-template="modern" style="padding: 16px; border: 2px solid #e5e7eb; border-radius: 8px; background: #ffffff; cursor: pointer; text-align: center; transition: all 0.2s;">
+            <div style="font-weight: 600; margin-bottom: 8px; color: #111827;">Modern</div>
+            <div style="font-size: 12px; color: #6b7280;">Clean, contemporary</div>
+          </button>
+          <button class="template-option" data-template="compact" style="padding: 16px; border: 2px solid #e5e7eb; border-radius: 8px; background: #ffffff; cursor: pointer; text-align: center; transition: all 0.2s;">
+            <div style="font-weight: 600; margin-bottom: 8px; color: #111827;">Compact</div>
+            <div style="font-size: 12px; color: #6b7280;">Dense, one-page</div>
+          </button>
+        </div>
       </div>
 
       <!-- Tabs -->

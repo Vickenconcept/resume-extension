@@ -1814,6 +1814,119 @@ async function loadSavedContent() {
   }
 }
 
+// Template menu handler
+const moreMenuBtn = document.querySelector('.btn-more');
+const templateMenu = document.querySelector('.template-menu');
+const templateOptions = document.querySelectorAll('.template-option-menu');
+let selectedResumeTemplate = 'classic';
+
+// Load current template preference
+async function loadTemplatePreference() {
+  try {
+    const response = await window.apiRequest('/default-template', {
+      method: 'GET',
+    });
+    if (response.success && response.data) {
+      selectedResumeTemplate = response.data.template || 'classic';
+      // Update visual state of selected template
+      updateTemplateSelection(selectedResumeTemplate);
+    }
+  } catch (error) {
+    console.warn('Failed to load template preference:', error);
+  }
+}
+
+// Update template selection visual state
+function updateTemplateSelection(template) {
+  templateOptions.forEach(option => {
+    const optionTemplate = option.getAttribute('data-template');
+    const nameSpan = option.querySelector('span:first-child');
+    
+    if (optionTemplate === template) {
+      option.style.background = '#f3f4f6';
+      nameSpan.style.fontWeight = '600';
+      nameSpan.style.color = '#111827';
+    } else {
+      option.style.background = 'none';
+      nameSpan.style.fontWeight = '400';
+      nameSpan.style.color = '#111827';
+    }
+  });
+}
+
+// Toggle template menu
+if (moreMenuBtn && templateMenu) {
+  moreMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    templateMenu.classList.toggle('hidden');
+  });
+
+  // Close menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!moreMenuBtn.contains(e.target) && !templateMenu.contains(e.target)) {
+      templateMenu.classList.add('hidden');
+    }
+  });
+
+  // Handle template option clicks
+  templateOptions.forEach(option => {
+    option.addEventListener('mouseenter', () => {
+      if (option.getAttribute('data-template') !== selectedResumeTemplate) {
+        option.style.background = '#f9fafb';
+      }
+    });
+    
+    option.addEventListener('mouseleave', () => {
+      if (option.getAttribute('data-template') !== selectedResumeTemplate) {
+        option.style.background = 'none';
+      }
+    });
+
+    option.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const template = option.getAttribute('data-template');
+      
+      if (template === selectedResumeTemplate) {
+        templateMenu.classList.add('hidden');
+        return;
+      }
+
+      try {
+        const response = await window.apiRequest('/default-template', {
+          method: 'POST',
+          body: JSON.stringify({ template }),
+        });
+        
+        if (response.success) {
+          selectedResumeTemplate = template;
+          updateTemplateSelection(template);
+          templateMenu.classList.add('hidden');
+          
+          // Show brief success feedback
+          moreMenuBtn.style.color = '#10b981';
+          setTimeout(() => {
+            moreMenuBtn.style.color = '';
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Failed to update template:', error);
+      }
+    });
+  });
+}
+
+// Load template when results section is shown
+const originalShowResults = window.showResultsSection;
+if (originalShowResults) {
+  window.showResultsSection = function() {
+    originalShowResults();
+    loadTemplatePreference();
+  };
+} else {
+  // Fallback: load on DOM ready
+  loadTemplatePreference();
+}
+
 // Initialize on load
 init();
 

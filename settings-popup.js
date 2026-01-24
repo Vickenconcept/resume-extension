@@ -991,6 +991,83 @@ if (bulkDeleteBtn) {
   });
 }
 
+// Template selection handler
+let currentTemplate = 'classic';
+
+async function loadTemplatePreference() {
+  try {
+    const response = await window.apiRequest('/default-template', {
+      method: 'GET',
+    });
+
+    if (response.success && response.data) {
+      currentTemplate = response.data.template || 'classic';
+      updateTemplateSelection();
+    }
+  } catch (error) {
+    console.error('Load template preference error:', error);
+    // Default to classic if load fails
+    currentTemplate = 'classic';
+    updateTemplateSelection();
+  }
+}
+
+function updateTemplateSelection() {
+  const templateOptions = document.querySelectorAll('.template-option');
+  templateOptions.forEach(option => {
+    const template = option.getAttribute('data-template');
+    if (template === currentTemplate) {
+      option.style.borderColor = '#3b82f6';
+      option.style.background = '#eff6ff';
+      option.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+    } else {
+      option.style.borderColor = '#e5e7eb';
+      option.style.background = '#ffffff';
+      option.style.boxShadow = 'none';
+    }
+  });
+}
+
+async function setTemplatePreference(template) {
+  try {
+    const response = await window.apiRequest('/default-template', {
+      method: 'POST',
+      body: JSON.stringify({ template }),
+    });
+
+    if (response.success) {
+      currentTemplate = template;
+      updateTemplateSelection();
+      showSettingsSuccess('Template preference updated successfully');
+    } else {
+      showSettingsError(response.error || 'Failed to update template preference');
+    }
+  } catch (error) {
+    console.error('Set template preference error:', error);
+    showSettingsError('Failed to update template preference: ' + error.message);
+  }
+}
+
+// Template option click handlers
+document.addEventListener('DOMContentLoaded', () => {
+  const templateOptions = document.querySelectorAll('.template-option');
+  templateOptions.forEach(option => {
+    option.addEventListener('click', () => {
+      const template = option.getAttribute('data-template');
+      setTemplatePreference(template);
+    });
+  });
+
+  // Load template preference when settings section is shown
+  if (typeof window.showSettingsSection === 'function') {
+    const originalShowSettings = window.showSettingsSection;
+    window.showSettingsSection = function() {
+      originalShowSettings();
+      loadTemplatePreference();
+    };
+  }
+});
+
 // Settings upload handler
 const settingsUploadBox = document.getElementById('settings-upload-box');
 const settingsResumeFile = document.getElementById('settings-resume-file');
