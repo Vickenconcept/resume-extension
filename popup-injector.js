@@ -87,10 +87,16 @@
     container.style.display = 'none';
   };
 
-  closeBtn.onclick = closePopup;
+  // Wrapped close handler that also cleans up event listeners
+  const wrappedClosePopup = () => {
+    document.removeEventListener('keydown', handleKeyDown);
+    closePopup();
+  };
+
+  closeBtn.onclick = wrappedClosePopup;
   container.onclick = (e) => {
     if (e.target === container) {
-      closePopup();
+      wrappedClosePopup();
     }
   };
 
@@ -138,11 +144,4 @@
   };
 
   document.addEventListener('keydown', handleKeyDown);
-
-  // Clean up event listener when popup is removed
-  const originalClosePopup = closePopup;
-  closePopup = () => {
-    document.removeEventListener('keydown', handleKeyDown);
-    originalClosePopup();
-  };
 })();

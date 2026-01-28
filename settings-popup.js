@@ -1,6 +1,4 @@
 // Settings section script for popup (not separate page)
-
-let editingResumeId = null;
 let currentPage = 1;
 let totalPages = 1;
 let selectedResumeIds = new Set();
@@ -8,6 +6,7 @@ let currentVersionsPage = 1;
 let versionsTotalPages = 1;
 let activeTab = 'resumes'; // 'resumes' or 'versions'
 let selectedVersionIds = new Set();
+let currentTemplate = 'classic'; // Default template
 
 // Helper function to safely handle Chrome storage operations
 async function safeChromeStorage(operation, ...args) {
@@ -146,6 +145,18 @@ function displaySettingsResumes(resumes, pagination) {
   if (emptyState) emptyState.classList.add('hidden');
   if (tbody) tbody.innerHTML = '';
 
+  // Ensure only one resume is marked as default (safety check)
+  const defaultResumes = resumes.filter(r => r.isDefault);
+  if (defaultResumes.length > 1) {
+    console.warn('Multiple resumes marked as default, keeping only the first one');
+    // Keep only the first one as default in the UI
+    resumes.forEach((resume, index) => {
+      if (index > 0) {
+        resume.isDefault = false;
+      }
+    });
+  }
+
   resumes.forEach(resume => {
     const row = createSettingsResumeRow(resume);
     if (tbody) tbody.appendChild(row);
@@ -237,38 +248,17 @@ function createSettingsResumeRow(resume) {
   // Name column
   const nameCell = document.createElement('td');
   nameCell.className = 'resume-name-cell';
-  if (editingResumeId === resume.resumeId) {
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'edit-name-input';
-    input.value = resume.displayName || resume.filename;
-    input.placeholder = 'Resume name';
-    input.style.width = '100%';
-    input.style.maxWidth = '200px';
-    input.addEventListener('keypress', async (e) => {
-      if (e.key === 'Enter') {
-        await saveResumeName(resume.resumeId, input.value);
-      } else if (e.key === 'Escape') {
-        cancelEdit(resume.resumeId);
-      }
-    });
-    input.addEventListener('blur', () => {
-      cancelEdit(resume.resumeId);
-    });
-    nameCell.appendChild(input);
-    setTimeout(() => {
-      input.focus();
-      input.select();
-    }, 10);
-  } else {
-    nameCell.textContent = resume.displayName || resume.filename;
-  }
+  nameCell.textContent = resume.displayName || resume.filename;
+  nameCell.style.fontWeight = '600';
+  nameCell.style.fontSize = '12px';
   tr.appendChild(nameCell);
 
   // Filename column
   const filenameCell = document.createElement('td');
   filenameCell.className = 'resume-filename-cell';
   filenameCell.textContent = resume.filename;
+  filenameCell.style.fontWeight = '600';
+  filenameCell.style.fontSize = '12px';
   tr.appendChild(filenameCell);
 
   // Uploaded date column
@@ -290,35 +280,29 @@ function createSettingsResumeRow(resume) {
         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
       </svg>
     `;
-    setDefaultBtn.addEventListener('click', () => setDefaultResume(resume.resumeId));
+    setDefaultBtn.addEventListener('click', async () => {
+      if (isButtonLoading(setDefaultBtn)) return;
+      setButtonLoading(setDefaultBtn, true);
+      try {
+        await setDefaultResume(resume.resumeId);
+      } finally {
+        setButtonLoading(setDefaultBtn, false);
+      }
+    });
     actionsCell.appendChild(setDefaultBtn);
   }
 
   const editBtn = document.createElement('button');
   editBtn.className = 'icon-btn';
-  if (editingResumeId === resume.resumeId) {
-    editBtn.setAttribute('data-tooltip', 'Cancel');
-    editBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-    `;
-  } else {
-    editBtn.setAttribute('data-tooltip', 'Rename');
-    editBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-      </svg>
-    `;
-  }
+  editBtn.setAttribute('data-tooltip', 'Rename');
+  editBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+    </svg>
+  `;
   editBtn.addEventListener('click', () => {
-    if (editingResumeId === resume.resumeId) {
-      cancelEdit(resume.resumeId);
-    } else {
-      editResumeName(resume.resumeId);
-    }
+    editResumeName(resume.resumeId);
   });
   actionsCell.appendChild(editBtn);
 
@@ -334,7 +318,15 @@ function createSettingsResumeRow(resume) {
         <line x1="14" y1="11" x2="14" y2="17"></line>
       </svg>
     `;
-    deleteBtn.addEventListener('click', () => deleteResume(resume.resumeId, resume.displayName || resume.filename));
+    deleteBtn.addEventListener('click', async () => {
+      if (isButtonLoading(deleteBtn)) return;
+      setButtonLoading(deleteBtn, true);
+      try {
+        await deleteResume(resume.resumeId, resume.displayName || resume.filename);
+      } finally {
+        setButtonLoading(deleteBtn, false);
+      }
+    });
     actionsCell.appendChild(deleteBtn);
   }
 
@@ -393,16 +385,81 @@ async function setDefaultResume(resumeId) {
 }
 
 function editResumeName(resumeId) {
-  editingResumeId = resumeId;
-  window.loadSettingsResumes();
+  const resumeRow = document.querySelector(`#settings-resume-${resumeId}`);
+  if (!resumeRow) return;
+
+  const nameCell = resumeRow.querySelector('.resume-name-cell');
+  if (!nameCell || nameCell.querySelector('input')) return; // Already editing
+
+  const currentName = nameCell.textContent || '';
+
+  // Create container for input and check icon
+  const editContainer = document.createElement('div');
+  editContainer.className = 'inline-edit-container';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentName;
+  input.className = 'inline-edit-input';
+
+  // Create check icon button
+  const checkButton = document.createElement('button');
+  checkButton.className = 'inline-edit-check';
+  checkButton.innerHTML = '✓';
+  checkButton.title = 'Save changes';
+
+  editContainer.appendChild(input);
+  editContainer.appendChild(checkButton);
+
+  // Replace cell content with edit container
+  nameCell.innerHTML = '';
+  nameCell.appendChild(editContainer);
+  input.focus();
+  input.select();
+
+  const finishEdit = async (save = false) => {
+    const newName = input.value.trim();
+    if (save && newName && newName !== currentName) {
+      // Save the new name
+      await saveResumeName(resumeId, newName);
+    } else {
+      // Cancel - restore original content
+      nameCell.textContent = currentName;
+    }
+  };
+
+  // Show/hide check button based on input changes
+  input.addEventListener('input', () => {
+    const newName = input.value.trim();
+    if (newName && newName !== currentName) {
+      checkButton.classList.add('show');
+    } else {
+      checkButton.classList.remove('show');
+    }
+  });
+
+  // Handle check button click
+  checkButton.addEventListener('click', async () => {
+    setButtonLoading(checkButton, true);
+    try {
+      await finishEdit(true);
+    } finally {
+      setButtonLoading(checkButton, false);
+    }
+  });
+
+  input.addEventListener('keydown', async (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      finishEdit(false);
+    }
+    // Removed Enter key handling for saving
+  });
+
+  // Removed auto-save on blur
 }
 
-function cancelEdit(resumeId) {
-  if (editingResumeId === resumeId) {
-    editingResumeId = null;
-    window.loadSettingsResumes();
-  }
-}
+
 
 async function saveResumeName(resumeId, newName) {
   if (!newName || newName.trim().length === 0) {
@@ -426,7 +483,7 @@ async function saveResumeName(resumeId, newName) {
     console.log('Update response:', response);
 
     if (response.success) {
-      editingResumeId = null;
+      // editingResumeId = null; // No longer needed with inline editing
       await window.loadSettingsResumes(currentPage);
       showSettingsSuccess('Resume name updated successfully');
     } else {
@@ -558,28 +615,17 @@ function createSettingsVersionRow(version) {
 
   // Resume column
   const resumeCell = document.createElement('td');
-  resumeCell.style.fontWeight = '500';
+  resumeCell.style.fontWeight = '600';
+  resumeCell.style.fontSize = '12px';
   resumeCell.textContent = version.resumeName;
   tr.appendChild(resumeCell);
 
   // Version Name column
   const versionNameCell = document.createElement('td');
   versionNameCell.textContent = version.versionName;
+  versionNameCell.style.fontWeight = '600';
+  versionNameCell.style.fontSize = '12px';
   tr.appendChild(versionNameCell);
-
-  // Status column
-  const statusCell = document.createElement('td');
-  if (version.isCurrent) {
-    const currentBadge = document.createElement('span');
-    currentBadge.className = 'default-badge';
-    currentBadge.textContent = 'Current';
-    currentBadge.style.background = '#10b981';
-    statusCell.appendChild(currentBadge);
-  } else {
-    statusCell.textContent = '—';
-    statusCell.style.color = '#9ca3af';
-  }
-  tr.appendChild(statusCell);
 
   // Created date column
   const createdCell = document.createElement('td');
@@ -605,7 +651,15 @@ function createSettingsVersionRow(version) {
         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
       </svg>
     `;
-    promoteBtn.addEventListener('click', () => promoteVersionToMain(version.versionId, version.versionName));
+    promoteBtn.addEventListener('click', async () => {
+      if (isButtonLoading(promoteBtn)) return;
+      setButtonLoading(promoteBtn, true);
+      try {
+        await promoteVersionToMain(version.versionId, version.versionName);
+      } finally {
+        setButtonLoading(promoteBtn, false);
+      }
+    });
     actionsCell.appendChild(promoteBtn);
   }
 
@@ -621,7 +675,15 @@ function createSettingsVersionRow(version) {
         <line x1="12" y1="15" x2="12" y2="3"></line>
       </svg>
     `;
-    downloadBtn.addEventListener('click', () => downloadVersion(version));
+    downloadBtn.addEventListener('click', async () => {
+      if (isButtonLoading(downloadBtn)) return;
+      setButtonLoading(downloadBtn, true);
+      try {
+        await downloadVersion(version);
+      } finally {
+        setButtonLoading(downloadBtn, false);
+      }
+    });
     actionsCell.appendChild(downloadBtn);
   }
 
@@ -637,7 +699,15 @@ function createSettingsVersionRow(version) {
       <line x1="14" y1="11" x2="14" y2="17"></line>
     </svg>
   `;
-  deleteBtn.addEventListener('click', () => deleteVersion(version.versionId, version.versionName));
+  deleteBtn.addEventListener('click', async () => {
+    if (isButtonLoading(deleteBtn)) return;
+    setButtonLoading(deleteBtn, true);
+    try {
+      await deleteVersion(version.versionId, version.versionName);
+    } finally {
+      setButtonLoading(deleteBtn, false);
+    }
+  });
   actionsCell.appendChild(deleteBtn);
 
   tr.appendChild(actionsCell);
@@ -647,7 +717,7 @@ function createSettingsVersionRow(version) {
 
 async function promoteVersionToMain(versionId, versionName) {
   const displayName = versionName || `Version ${versionId}`;
-  if (!confirm(`Are you sure you want to promote "${displayName}" to the main resume? This will replace the current main resume content.`)) {
+  if (!confirm(`Are you sure you want to promote "${displayName}" to a new resume? This will create a new resume document from this version.`)) {
     return;
   }
 
@@ -659,7 +729,11 @@ async function promoteVersionToMain(versionId, versionName) {
 
     if (response.success) {
       await window.loadSettingsVersions(currentVersionsPage);
-      showSettingsSuccess(`"${displayName}" promoted to main resume successfully`);
+      // Also reload the resumes list since a new resume was created
+      if (window.loadSettingsResumes) {
+        await window.loadSettingsResumes(currentPage);
+      }
+      showSettingsSuccess(`"${displayName}" promoted to new resume successfully`);
     } else {
       showSettingsError(response.error || 'Failed to promote version');
     }
@@ -991,22 +1065,62 @@ if (bulkDeleteBtn) {
   });
 }
 
-// Template selection handler
-let currentTemplate = 'classic';
+// Loading state management
+const loadingButtons = new Set();
+
+function setButtonLoading(button, loading = true) {
+  if (loading) {
+    loadingButtons.add(button);
+    button.disabled = true;
+    button.classList.add('loading');
+    // Store original content if not already stored
+    if (!button._originalHTML) {
+      button._originalHTML = button.innerHTML;
+    }
+    button.innerHTML = `
+      <svg class="loading-spinner" viewBox="0 0 24 24" width="16" height="16">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="31.416" stroke-dashoffset="31.416">
+          <animate attributeName="stroke-dashoffset" values="31.416;0" dur="1s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+    `;
+  } else {
+    loadingButtons.delete(button);
+    button.disabled = false;
+    button.classList.remove('loading');
+    // Restore original content
+    if (button._originalHTML) {
+      button.innerHTML = button._originalHTML;
+    }
+  }
+}
+
+function isButtonLoading(button) {
+  return loadingButtons.has(button);
+} // Default to classic
 
 async function loadTemplatePreference() {
   try {
+    console.log('Loading template preference...');
     const response = await window.apiRequest('/default-template', {
       method: 'GET',
     });
+    console.log('Template preference response:', response);
 
     if (response.success && response.data) {
       currentTemplate = response.data.template || 'classic';
+      console.log('Set currentTemplate to:', currentTemplate);
+      updateTemplateSelection();
+    } else {
+      // If API call succeeds but no data, default to classic
+      console.log('No data in response, defaulting to classic');
+      currentTemplate = 'classic';
       updateTemplateSelection();
     }
   } catch (error) {
     console.error('Load template preference error:', error);
     // Default to classic if load fails
+    console.log('API call failed, defaulting to classic');
     currentTemplate = 'classic';
     updateTemplateSelection();
   }
@@ -1014,12 +1128,19 @@ async function loadTemplatePreference() {
 
 function updateTemplateSelection() {
   const templateOptions = document.querySelectorAll('.template-option');
+  console.log('Updating template selection:', currentTemplate, 'Found options:', templateOptions.length);
+  if (templateOptions.length === 0) {
+    console.warn('No template options found in DOM');
+    return;
+  }
   templateOptions.forEach(option => {
     const template = option.getAttribute('data-template');
+    console.log('Checking option:', template, 'Current:', currentTemplate);
     if (template === currentTemplate) {
       option.style.borderColor = '#3b82f6';
       option.style.background = '#eff6ff';
       option.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+      console.log('Selected option:', template);
     } else {
       option.style.borderColor = '#e5e7eb';
       option.style.background = '#ffffff';
@@ -1029,6 +1150,7 @@ function updateTemplateSelection() {
 }
 
 async function setTemplatePreference(template) {
+  console.log('Setting template preference to:', template);
   try {
     const response = await window.apiRequest('/default-template', {
       method: 'POST',
@@ -1036,10 +1158,12 @@ async function setTemplatePreference(template) {
     });
 
     if (response.success) {
+      console.log('API success, updating currentTemplate to:', template);
       currentTemplate = template;
       updateTemplateSelection();
       showSettingsSuccess('Template preference updated successfully');
     } else {
+      console.error('API error:', response.error);
       showSettingsError(response.error || 'Failed to update template preference');
     }
   } catch (error) {
@@ -1049,24 +1173,43 @@ async function setTemplatePreference(template) {
 }
 
 // Template option click handlers
-document.addEventListener('DOMContentLoaded', () => {
-  const templateOptions = document.querySelectorAll('.template-option');
-  templateOptions.forEach(option => {
-    option.addEventListener('click', () => {
-      const template = option.getAttribute('data-template');
-      setTemplatePreference(template);
-    });
-  });
+document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize with default template selection
+  updateTemplateSelection();
 
-  // Load template preference when settings section is shown
-  if (typeof window.showSettingsSection === 'function') {
-    const originalShowSettings = window.showSettingsSection;
-    window.showSettingsSection = function() {
-      originalShowSettings();
-      loadTemplatePreference();
-    };
+  // Load template preference on page load
+  await loadTemplatePreference();
+
+  // Ensure at least classic is selected as fallback
+  if (!currentTemplate) {
+    currentTemplate = 'classic';
+    updateTemplateSelection();
   }
 });
+
+// Use event delegation for template clicks
+document.addEventListener('click', (e) => {
+  const target = e.target;
+  if (target.classList.contains('template-option') || target.closest('.template-option')) {
+    const option = target.classList.contains('template-option') ? target : target.closest('.template-option');
+    const template = option.getAttribute('data-template');
+    console.log('Template clicked via delegation:', template);
+    if (template) {
+      setTemplatePreference(template);
+    }
+  }
+});
+
+// Update template selection when settings section is shown
+if (typeof window.showSettingsSection === 'function') {
+  const originalShowSettings = window.showSettingsSection;
+  window.showSettingsSection = function() {
+    originalShowSettings();
+    
+    // Update template selection when settings section is shown
+    updateTemplateSelection();
+  };
+}
 
 // Settings upload handler
 const settingsUploadBox = document.getElementById('settings-upload-box');

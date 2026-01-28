@@ -55,7 +55,7 @@
             <a href="#" id="menu-settings" class="menu-item" data-tooltip="Resume Settings">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="3"></circle>
-                <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"></path>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
               </svg>
             </a>
           </div>
@@ -264,18 +264,59 @@
         <p id="job-text" class="job-text"></p>
       </div>
 
-      <div class="toggle-card">
-        <div class="toggle-content">
-          <div class="toggle-header">
-            <strong>100% Match Mode</strong>
-            <label class="toggle-switch">
-              <input type="checkbox" id="generate-freely-toggle">
-              <span class="toggle-slider"></span>
-            </label>
+      <div class="mode-selection-card">
+        <div class="mode-selection-header">
+          <strong>Optimization Mode</strong>
+          <span class="mode-info-icon" id="mode-info-icon" title="Click for mode details">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+          </span>
+        </div>
+        <div class="mode-options">
+          <label class="mode-option" data-mode="strict">
+            <input type="radio" name="optimization-mode" value="strict" id="mode-strict" checked>
+            <div class="mode-option-content">
+              <div class="mode-option-header">
+                <span class="mode-option-title">Strict</span>
+                <span class="mode-option-badge safe">Safe</span>
+              </div>
+              <p class="mode-option-description">Fact-preserving optimization. Rephrase only, no additions.</p>
+            </div>
+          </label>
+          <label class="mode-option" data-mode="enhanced">
+            <input type="radio" name="optimization-mode" value="enhanced" id="mode-enhanced">
+            <div class="mode-option-content">
+              <div class="mode-option-header">
+                <span class="mode-option-title">Enhanced</span>
+                <span class="mode-option-badge recommended">Recommended</span>
+              </div>
+              <p class="mode-option-description">Smart positioning with adjacent skills. Natural career positioning.</p>
+            </div>
+          </label>
+          <label class="mode-option" data-mode="ats-boost">
+            <input type="radio" name="optimization-mode" value="ats-boost" id="mode-ats-boost">
+            <div class="mode-option-content">
+              <div class="mode-option-header">
+                <span class="mode-option-title">ATS Boost</span>
+                <span class="mode-option-badge advanced">Advanced</span>
+              </div>
+              <p class="mode-option-description">Maximum keyword targeting for ATS. May require review.</p>
+            </div>
+          </label>
+        </div>
+        <div id="mode-details" class="mode-details hidden">
+          <div class="mode-detail-item">
+            <strong>Strict Mode:</strong> Best for healthcare, government, finance, and background-checked roles. Preserves 100% factual accuracy.
           </div>
-          <p class="toggle-description">
-            Allow AI to add missing skills/experiences from job description to help you meet 100% of requirements
-          </p>
+          <div class="mode-detail-item">
+            <strong>Enhanced Mode:</strong> Best for competitive roles, tech, startups. Adds adjacent skills naturally.
+          </div>
+          <div class="mode-detail-item">
+            <strong>ATS Boost Mode:</strong> Maximum keyword optimization. Use when ATS match is critical.
+          </div>
         </div>
       </div>
 
@@ -409,7 +450,7 @@
                 <circle cx="12" cy="19" r="1"></circle>
               </svg>
             </button>
-            <div class="template-menu hidden" style="position: absolute; top: 100%; right: 0; margin-top: 8px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); min-width: 180px; z-index: 1000;">
+            <div class="template-menu hidden" style="position: absolute; top: 100%; left: 0; margin-top: 8px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); min-width: 180px; z-index: 10000;">
               <div style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; font-weight: 600; color: #6b7280;">Template</div>
               <button class="template-option-menu" data-template="classic" style="width: 100%; padding: 10px 12px; text-align: left; border: none; background: none; cursor: pointer; font-size: 13px; color: #111827; transition: background 0.2s; display: flex; align-items: center; justify-content: space-between;">
                 <span>Classic</span>
@@ -601,9 +642,8 @@
                   <th style="width: 5%;">
                     <input type="checkbox" id="select-all-versions-checkbox" style="cursor: pointer;" title="Select All">
                   </th>
-                  <th style="width: 20%;">Resume</th>
-                  <th style="width: 20%;">Version Name</th>
-                  <th style="width: 10%;">Status</th>
+                  <th style="width: 25%;">Resume</th>
+                  <th style="width: 25%;">Version Name</th>
                   <th style="width: 15%;">Created</th>
                   <th style="width: 15%;">Updated</th>
                   <th style="width: 15%;">Actions</th>

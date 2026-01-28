@@ -951,15 +951,18 @@ if (tailorBtn) {
       }
 
       // Set operation state for persistence and clear old results
-      // Store jobDescription and generateFreely for potential regeneration
-      const generateFreelyToggle = document.getElementById('generate-freely-toggle');
-      const generateFreely = generateFreelyToggle ? generateFreelyToggle.checked : false;
+      // Get selected optimization mode
+      const selectedMode = document.querySelector('input[name="optimization-mode"]:checked')?.value || 'strict';
+      // Map mode to generateFreely (for backward compatibility with backend)
+      // strict -> false, enhanced/ats-boost -> true
+      const generateFreely = selectedMode !== 'strict';
       
       await chrome.storage.local.set({ 
         operationState: 'tailoring',
         pendingJobDescription: jobDescription,
         jobDescription: jobDescription, // Store for regeneration
-        generateFreely: generateFreely, // Store for regeneration
+        optimizationMode: selectedMode, // Store the actual mode
+        generateFreely: generateFreely, // Store for backward compatibility
         currentSection: 'tailor', // Update section to tailor (not results)
         // Don't clear lastResults yet - we'll update it after successful generation
       });
@@ -993,16 +996,18 @@ if (tailorBtn) {
       }, 10000);
       
       try {
-        // Get generate freely from storage (already stored above)
-        const { generateFreely: storedGenerateFreely } = await chrome.storage.local.get(['generateFreely']);
-        const generateFreely = storedGenerateFreely !== undefined ? storedGenerateFreely : false;
+        // Get optimization mode from storage (already stored above)
+        const { optimizationMode: storedMode, generateFreely: storedGenerateFreely } = await chrome.storage.local.get(['optimizationMode', 'generateFreely']);
+        const optimizationMode = storedMode || 'strict';
+        const generateFreely = storedGenerateFreely !== undefined ? storedGenerateFreely : (optimizationMode !== 'strict');
         
         const response = await window.apiRequest(`/tailor-resume`, {
           method: 'POST',
           body: JSON.stringify({
             resumeId,
             jobDescription,
-            generateFreely: generateFreely, // Send toggle value
+            generateFreely: generateFreely, // Send for backward compatibility
+            optimizationMode: optimizationMode, // Send the actual mode (backend can use this in future)
           }),
         });
 
@@ -1198,7 +1203,7 @@ async function handleRegenerate(currentData) {
 
     // Get current data
     const { resumeId } = await chrome.storage.local.get(['resumeId']);
-    const { jobDescription, generateFreely } = await chrome.storage.local.get(['jobDescription', 'generateFreely']);
+    const { jobDescription, optimizationMode, generateFreely } = await chrome.storage.local.get(['jobDescription', 'optimizationMode', 'generateFreely']);
     
     if (!resumeId || !jobDescription) {
       // Try to get from current results
@@ -1210,6 +1215,10 @@ async function handleRegenerate(currentData) {
         throw new Error('Missing resume ID or job description');
       }
     }
+    
+    // Use stored mode or default to strict
+    const selectedMode = optimizationMode || 'strict';
+    const generateFreelyValue = generateFreely !== undefined ? generateFreely : (selectedMode !== 'strict');
 
     // Get missing keywords from current results - filter out noise words
     const allMissingKeywords = currentData.similarityMetrics?.missingKeywords || [];
@@ -1232,7 +1241,8 @@ async function handleRegenerate(currentData) {
       body: JSON.stringify({
         resumeId,
         jobDescription,
-        generateFreely: generateFreely === true || generateFreely === 'true',
+        generateFreely: generateFreelyValue === true || generateFreelyValue === 'true',
+        optimizationMode: selectedMode, // Send the actual mode
         missingKeywords,
         matchedKeywords, // Pass matched keywords to preserve them
         currentResumeText,
@@ -1891,6 +1901,12 @@ if (moreMenuBtn && templateMenu) {
         return;
       }
 
+      // Add loading state
+      option.classList.add('loading');
+      option.disabled = true;
+      const originalText = option.querySelector('span:first-child').textContent;
+      option.querySelector('span:first-child').textContent = 'Updating...';
+
       try {
         const response = await window.apiRequest('/default-template', {
           method: 'POST',
@@ -1910,6 +1926,16 @@ if (moreMenuBtn && templateMenu) {
         }
       } catch (error) {
         console.error('Failed to update template:', error);
+        // Show error feedback
+        moreMenuBtn.style.color = '#ef4444';
+        setTimeout(() => {
+          moreMenuBtn.style.color = '';
+        }, 1000);
+      } finally {
+        // Remove loading state
+        option.classList.remove('loading');
+        option.disabled = false;
+        option.querySelector('span:first-child').textContent = originalText;
       }
     });
   });
@@ -1927,8 +1953,43 @@ if (originalShowResults) {
   loadTemplatePreference();
 }
 
+// Mode Selection Handlers
+function initModeSelection() {
+  // Mode info icon toggle
+  const modeInfoIcon = document.getElementById('mode-info-icon');
+  const modeDetails = document.getElementById('mode-details');
+  
+  if (modeInfoIcon && modeDetails) {
+    modeInfoIcon.addEventListener('click', () => {
+      modeDetails.classList.toggle('hidden');
+    });
+  }
+  
+  // Restore saved mode selection
+  chrome.storage.local.get(['optimizationMode']).then(({ optimizationMode }) => {
+    if (optimizationMode) {
+      const modeRadio = document.getElementById(`mode-${optimizationMode}`);
+      if (modeRadio) {
+        modeRadio.checked = true;
+      }
+    }
+  });
+  
+  // Save mode selection when changed
+  const modeRadios = document.querySelectorAll('input[name="optimization-mode"]');
+  modeRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      chrome.storage.local.set({ 
+        optimizationMode: radio.value,
+        generateFreely: radio.value !== 'strict' // Update generateFreely for backward compatibility
+      });
+    });
+  });
+}
+
 // Initialize on load
 init();
+initModeSelection();
 
 // Load saved content after init
 setTimeout(loadSavedContent, 500);
