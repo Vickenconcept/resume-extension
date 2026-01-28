@@ -351,34 +351,64 @@ async function init() {
     'savedJobDescription'
   ]);
 
-  // Check if generation is in progress (only if StateManager is available)
+  // Check if generation is in progress - check both StateManager and operationState
+  let generationInProgress = false;
+  let jobDescriptionToRestore = null;
+  
+  // First try StateManager if available
   if (window.StateManager && typeof window.StateManager.restoreGenerationState === 'function') {
     try {
       const generationState = await window.StateManager.restoreGenerationState();
       if (generationState && generationState.inProgress) {
-        console.log('Generation in progress, showing loading state...');
-        if (jobText) {
-          jobText.textContent = generationState.jobDescription;
-        }
-        window.showTailorSection();
-        
-        // Show loading overlay
-        if (loading) {
-          loading.classList.remove('hidden');
-          if (typeof window.startLoadingMessages === 'function') {
-            window.startLoadingMessages();
-          }
-        }
-        
-        // Try to resume generation (poll for completion)
-        // Note: This is a simple approach - in production you might want to use WebSockets or polling
-        // For now, we'll just show the state and let user click again if needed
-        return;
+        generationInProgress = true;
+        jobDescriptionToRestore = generationState.jobDescription;
       }
     } catch (error) {
-      console.warn('Error checking generation state:', error);
-      // Continue with normal initialization
+      console.warn('Error checking generation state via StateManager:', error);
     }
+  }
+  
+  // Also check operationState directly as fallback
+  if (!generationInProgress && operationState === 'tailoring') {
+    const { generationStartTime, jobDescription: storedJobDescription } = await chrome.storage.local.get(['generationStartTime', 'jobDescription']);
+    const elapsed = generationStartTime ? (Date.now() - generationStartTime) : 0;
+    
+    // If generation started less than 5 minutes ago, consider it in progress
+    if (elapsed < 5 * 60 * 1000) {
+      generationInProgress = true;
+      jobDescriptionToRestore = pendingJobDescription || storedJobDescription;
+    } else {
+      // Stale state - clear it
+      console.log('Stale generation state detected, clearing...');
+      await chrome.storage.local.set({ operationState: null, generationStartTime: null });
+    }
+  }
+  
+  // If generation is in progress, restore the loading state
+  if (generationInProgress && jobDescriptionToRestore) {
+    console.log('Generation in progress, restoring loading state...');
+    if (jobText) {
+      jobText.textContent = jobDescriptionToRestore;
+    }
+    window.showTailorSection();
+    
+    // Show loading overlay
+    if (loading) {
+      loading.classList.remove('hidden');
+      if (typeof window.startLoadingMessages === 'function') {
+        window.startLoadingMessages();
+      }
+    }
+    
+    // Disable the generate button while in progress
+    if (tailorBtn) {
+      tailorBtn.disabled = true;
+    }
+    
+    // Note: The actual API request may still be in progress on the backend
+    // The user can see the loading state, and if they wait, results will appear
+    // If the request already completed, they may need to refresh or check results
+    return;
   }
   
   console.log('Popup initialization state:', {
@@ -951,19 +981,31 @@ if (tailorBtn) {
       }
 
       // Set operation state for persistence and clear old results
-      // Get selected optimization mode
-      const selectedMode = document.querySelector('input[name="optimization-mode"]:checked')?.value || 'strict';
-      // Map mode to generateFreely (for backward compatibility with backend)
-      // strict -> false, enhanced/ats-boost -> true
-      const generateFreely = selectedMode !== 'strict';
+      // Store jobDescription and generateFreely for potential regeneration
+      const generateFreelyToggle = document.getElementById('generate-freely-toggle');
+      const generateFreely = generateFreelyToggle ? generateFreelyToggle.checked : false;
+      
+      // Get custom mode and instructions
+      const customModeToggle = document.getElementById('custom-mode-toggle');
+      const customMode = customModeToggle ? customModeToggle.checked : false;
+      const customInstructionsInput = document.getElementById('custom-instructions');
+      const customInstructions = customMode && customInstructionsInput ? customInstructionsInput.value.trim() : '';
+      
+      // Store generation start time for persistence tracking
+      const generationStartTime = Date.now();
+      
+      // Clear selectedJobDescription from storage since generation is starting
+      await chrome.storage.local.remove(['selectedJobDescription']);
       
       await chrome.storage.local.set({ 
         operationState: 'tailoring',
         pendingJobDescription: jobDescription,
         jobDescription: jobDescription, // Store for regeneration
-        optimizationMode: selectedMode, // Store the actual mode
-        generateFreely: generateFreely, // Store for backward compatibility
+        generateFreely: generateFreely, // Store for regeneration
+        customMode: customMode, // Store custom mode
+        customInstructions: customInstructions, // Store custom instructions
         currentSection: 'tailor', // Update section to tailor (not results)
+        generationStartTime: generationStartTime, // Track when generation started
         // Don't clear lastResults yet - we'll update it after successful generation
       });
       
@@ -996,18 +1038,20 @@ if (tailorBtn) {
       }, 10000);
       
       try {
-        // Get optimization mode from storage (already stored above)
-        const { optimizationMode: storedMode, generateFreely: storedGenerateFreely } = await chrome.storage.local.get(['optimizationMode', 'generateFreely']);
-        const optimizationMode = storedMode || 'strict';
-        const generateFreely = storedGenerateFreely !== undefined ? storedGenerateFreely : (optimizationMode !== 'strict');
+        // Get generate freely and custom instructions from storage (already stored above)
+        const { generateFreely: storedGenerateFreely, customMode: storedCustomMode, customInstructions: storedCustomInstructions } = await chrome.storage.local.get(['generateFreely', 'customMode', 'customInstructions']);
+        const generateFreely = storedGenerateFreely !== undefined ? storedGenerateFreely : false;
+        const customMode = storedCustomMode !== undefined ? storedCustomMode : false;
+        const customInstructions = storedCustomInstructions || '';
         
         const response = await window.apiRequest(`/tailor-resume`, {
           method: 'POST',
           body: JSON.stringify({
             resumeId,
             jobDescription,
-            generateFreely: generateFreely, // Send for backward compatibility
-            optimizationMode: optimizationMode, // Send the actual mode (backend can use this in future)
+            generateFreely: generateFreely, // Send toggle value
+            customMode: customMode, // Send custom mode flag
+            customInstructions: customInstructions, // Send custom instructions if provided
           }),
         });
 
@@ -1042,6 +1086,7 @@ if (tailorBtn) {
           await chrome.storage.local.set({ 
             operationState: null,
             pendingJobDescription: null,
+            generationStartTime: null, // Clear generation start time
                 });
               }
               await chrome.storage.local.set({
@@ -1072,6 +1117,7 @@ if (tailorBtn) {
         await chrome.storage.local.set({ 
           operationState: null,
                  pendingJobDescription: null,
+          generationStartTime: null, // Clear generation start time
         });
              }
         window.showError(error.message);
@@ -1192,18 +1238,23 @@ async function handleRegenerate(currentData) {
       `;
     }
 
-    // Show loading overlay
+    // Show loading overlay with rotating messages
     if (loading) {
       loading.classList.remove('hidden');
-      const loadingText = loading.querySelector('p');
-      if (loadingText) {
-        loadingText.textContent = 'Regenerating resume to achieve 98-100% match...';
+      // Start regeneration-specific loading messages
+      if (typeof window.startRegenerationMessages === 'function') {
+        window.startRegenerationMessages();
+      } else {
+        // Fallback: use regular loading messages
+        if (typeof window.startLoadingMessages === 'function') {
+          window.startLoadingMessages();
+        }
       }
     }
 
     // Get current data
     const { resumeId } = await chrome.storage.local.get(['resumeId']);
-    const { jobDescription, optimizationMode, generateFreely } = await chrome.storage.local.get(['jobDescription', 'optimizationMode', 'generateFreely']);
+    const { jobDescription, generateFreely } = await chrome.storage.local.get(['jobDescription', 'generateFreely']);
     
     if (!resumeId || !jobDescription) {
       // Try to get from current results
@@ -1215,10 +1266,6 @@ async function handleRegenerate(currentData) {
         throw new Error('Missing resume ID or job description');
       }
     }
-    
-    // Use stored mode or default to strict
-    const selectedMode = optimizationMode || 'strict';
-    const generateFreelyValue = generateFreely !== undefined ? generateFreely : (selectedMode !== 'strict');
 
     // Get missing keywords from current results - filter out noise words
     const allMissingKeywords = currentData.similarityMetrics?.missingKeywords || [];
@@ -1241,8 +1288,7 @@ async function handleRegenerate(currentData) {
       body: JSON.stringify({
         resumeId,
         jobDescription,
-        generateFreely: generateFreelyValue === true || generateFreelyValue === 'true',
-        optimizationMode: selectedMode, // Send the actual mode
+        generateFreely: generateFreely === true || generateFreely === 'true',
         missingKeywords,
         matchedKeywords, // Pass matched keywords to preserve them
         currentResumeText,
@@ -1690,40 +1736,60 @@ if (typeof window.setupAuthHandlers === 'function') {
   window.setupAuthHandlers();
 }
 
-// Loading messages rotation
+// Loading messages rotation with AI-themed messages
 let loadingMessageInterval = null;
 const loadingMessages = [
-  'Generating...',
-  'Please wait',
-  'Analyzing job description...',
-  'Preparing document...',
-  'Tailoring your resume...',
-  'Almost there...',
+  { main: 'Thinking...', sub: 'Analyzing your resume and job description' },
+  { main: 'Scanning...', sub: 'Reading every line of the job description' },
+  { main: 'Analyzing...', sub: 'Extracting keywords, skills, and requirements' },
+  { main: 'Matching...', sub: 'Aligning your experience with the role' },
+  { main: 'Checking ATS...', sub: 'Optimizing for applicant tracking systems' },
+  { main: 'Generating...', sub: 'Drafting tailored resume content' },
+  { main: 'Writing...', sub: 'Crafting your professional cover letter' },
+  { main: 'Finalizing...', sub: 'Polishing and formatting documents' },
+];
+
+// Regeneration-specific messages
+const regenerationMessages = [
+  { main: 'Enhancing...', sub: 'Reviewing your current resume and improvements' },
+  { main: 'Integrating...', sub: 'Adding missing keywords naturally' },
+  { main: 'Optimizing...', sub: 'Improving keyword alignment and flow' },
+  { main: 'Refining...', sub: 'Making content more targeted and relevant' },
+  { main: 'Polishing...', sub: 'Ensuring natural, professional language' },
+  { main: 'Finalizing...', sub: 'Preparing your enhanced resume' },
 ];
 
 function startLoadingMessages() {
-  const loadingText = document.querySelector('#loading .loading-content p');
-  if (!loadingText) return;
+  const mainText = document.getElementById('loading-main-text');
+  const subText = document.getElementById('loading-sub-text');
+  if (!mainText || !subText) return;
   
   let messageIndex = 0;
-  loadingText.textContent = loadingMessages[0];
+  mainText.textContent = loadingMessages[0].main;
+  subText.textContent = loadingMessages[0].sub;
   
   loadingMessageInterval = setInterval(() => {
     messageIndex = (messageIndex + 1) % loadingMessages.length;
+    const message = loadingMessages[messageIndex];
     
     // Fade out
-    loadingText.classList.add('fade-out');
+    mainText.classList.add('fade-out');
+    subText.classList.add('fade-out');
     
     setTimeout(() => {
-      loadingText.textContent = loadingMessages[messageIndex];
-      loadingText.classList.remove('fade-out');
-      loadingText.classList.add('fade-in');
+      mainText.textContent = message.main;
+      subText.textContent = message.sub;
+      mainText.classList.remove('fade-out');
+      subText.classList.remove('fade-out');
+      mainText.classList.add('fade-in');
+      subText.classList.add('fade-in');
       
       setTimeout(() => {
-        loadingText.classList.remove('fade-in');
-      }, 100);
-    }, 150);
-  }, 2000); // Change message every 2 seconds
+        mainText.classList.remove('fade-in');
+        subText.classList.remove('fade-in');
+      }, 250);
+    }, 250);
+  }, 3500); // Change message every 3.5 seconds (slower, more readable)
 }
 
 function stopLoadingMessages() {
@@ -1732,12 +1798,52 @@ function stopLoadingMessages() {
     loadingMessageInterval = null;
   }
   
-  const loadingText = document.querySelector('#loading .loading-content p');
-  if (loadingText) {
-    loadingText.textContent = 'Generating your tailored resume content...';
-    loadingText.classList.remove('fade-out', 'fade-in');
+  const mainText = document.getElementById('loading-main-text');
+  const subText = document.getElementById('loading-sub-text');
+  if (mainText && subText) {
+    mainText.textContent = 'Generating your tailored resume content...';
+    subText.textContent = '';
+    mainText.classList.remove('fade-out', 'fade-in');
+    subText.classList.remove('fade-out', 'fade-in');
   }
 }
+
+// Start regeneration-specific loading messages
+window.startRegenerationMessages = function() {
+  const mainText = document.getElementById('loading-main-text');
+  const subText = document.getElementById('loading-sub-text');
+  if (!mainText || !subText) return;
+  
+  // Stop any existing messages
+  stopLoadingMessages();
+  
+  let messageIndex = 0;
+  mainText.textContent = regenerationMessages[0].main;
+  subText.textContent = regenerationMessages[0].sub;
+  
+  loadingMessageInterval = setInterval(() => {
+    messageIndex = (messageIndex + 1) % regenerationMessages.length;
+    const message = regenerationMessages[messageIndex];
+    
+    // Fade out
+    mainText.classList.add('fade-out');
+    subText.classList.add('fade-out');
+    
+    setTimeout(() => {
+      mainText.textContent = message.main;
+      subText.textContent = message.sub;
+      mainText.classList.remove('fade-out');
+      subText.classList.remove('fade-out');
+      mainText.classList.add('fade-in');
+      subText.classList.add('fade-in');
+      
+      setTimeout(() => {
+        mainText.classList.remove('fade-in');
+        subText.classList.remove('fade-in');
+      }, 250);
+    }, 250);
+  }, 3500); // Change message every 3.5 seconds
+};
 
 // Auto-save edited content (debounced)
 let saveTimeout = null;
@@ -1953,43 +2059,54 @@ if (originalShowResults) {
   loadTemplatePreference();
 }
 
-// Mode Selection Handlers
-function initModeSelection() {
-  // Mode info icon toggle
-  const modeInfoIcon = document.getElementById('mode-info-icon');
-  const modeDetails = document.getElementById('mode-details');
-  
-  if (modeInfoIcon && modeDetails) {
-    modeInfoIcon.addEventListener('click', () => {
-      modeDetails.classList.toggle('hidden');
-    });
-  }
-  
-  // Restore saved mode selection
-  chrome.storage.local.get(['optimizationMode']).then(({ optimizationMode }) => {
-    if (optimizationMode) {
-      const modeRadio = document.getElementById(`mode-${optimizationMode}`);
-      if (modeRadio) {
-        modeRadio.checked = true;
+// Mode toggles (100% Match vs Custom) - make them behave like radio buttons
+const generateFreelyToggle = document.getElementById('generate-freely-toggle');
+const customModeToggle = document.getElementById('custom-mode-toggle');
+const customInstructionsContainer = document.getElementById('custom-instructions-container');
+const customInstructionsInput = document.getElementById('custom-instructions');
+
+if (customModeToggle && customInstructionsContainer) {
+  customModeToggle.addEventListener('change', (e) => {
+    const checked = e.target.checked;
+
+    if (checked) {
+      // Turn off 100% Match when custom is on
+      if (generateFreelyToggle) {
+        generateFreelyToggle.checked = false;
+      }
+
+      customInstructionsContainer.classList.remove('hidden');
+      if (customInstructionsInput) {
+        customInstructionsInput.focus();
+      }
+    } else {
+      customInstructionsContainer.classList.add('hidden');
+      if (customInstructionsInput) {
+        customInstructionsInput.value = '';
       }
     }
   });
-  
-  // Save mode selection when changed
-  const modeRadios = document.querySelectorAll('input[name="optimization-mode"]');
-  modeRadios.forEach(radio => {
-    radio.addEventListener('change', () => {
-      chrome.storage.local.set({ 
-        optimizationMode: radio.value,
-        generateFreely: radio.value !== 'strict' // Update generateFreely for backward compatibility
-      });
-    });
+}
+
+if (generateFreelyToggle && customModeToggle) {
+  generateFreelyToggle.addEventListener('change', (e) => {
+    const checked = e.target.checked;
+
+    if (checked) {
+      // Turn off custom mode when 100% Match is on
+      customModeToggle.checked = false;
+      if (customInstructionsContainer) {
+        customInstructionsContainer.classList.add('hidden');
+      }
+      if (customInstructionsInput) {
+        customInstructionsInput.value = '';
+      }
+    }
   });
 }
 
 // Initialize on load
 init();
-initModeSelection();
 
 // Load saved content after init
 setTimeout(loadSavedContent, 500);
