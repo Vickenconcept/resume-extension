@@ -48,11 +48,125 @@ try {
 const fullDocumentContent = document.getElementById('full-document-content');
 const coverLetterContent = document.getElementById('cover-letter-content');
 
+// Expanded editor elements
+const expandedEditorOverlay = document.getElementById('expanded-editor-overlay');
+const expandedEditorText = document.getElementById('expanded-editor-text');
+const expandedEditorTitle = document.getElementById('expanded-editor-title');
+const expandedEditorClose = document.getElementById('expanded-editor-close');
+const expandedEditorSave = document.getElementById('expanded-editor-save');
+const expandedEditorCancel = document.getElementById('expanded-editor-cancel');
+const expandedEditorToolbar = document.getElementById('expanded-editor-toolbar');
+
+// Rich text editor instance
+let currentEditorTarget = null; // 'resume' or 'cover-letter'
+
+// Helper function to convert HTML to plain text with proper line breaks
+function convertHtmlToPlainText(element) {
+  let text = '';
+  const nodes = element.childNodes;
+  
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    
+    if (node.nodeType === Node.TEXT_NODE) {
+      text += node.textContent;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const tagName = node.tagName.toLowerCase();
+      
+      // Handle line breaks
+      if (tagName === 'br') {
+        text += '\n';
+      } else if (tagName === 'p' || tagName === 'div') {
+        if (i > 0) text += '\n\n';
+        text += convertHtmlToPlainText(node);
+      } else if (tagName === 'li') {
+        text += '• ' + convertHtmlToPlainText(node) + '\n';
+      } else if (tagName === 'ul' || tagName === 'ol') {
+        text += convertHtmlToPlainText(node);
+      } else {
+        // For other tags (b, i, strong, etc.), just get the text content
+        text += convertHtmlToPlainText(node);
+      }
+    }
+  }
+  
+  return text.trim();
+}
+
 const newTailorBtn = document.getElementById('new-tailor-btn');
 const errorMessage = document.getElementById('error-message');
 const retryBtn = document.getElementById('retry-btn');
 
 // Standard API response handler
+// Helper function to check if an error is an authentication error (401/403) vs network error
+function isAuthenticationError(error) {
+  if (!error) return false;
+  
+  const errorMessage = error.message || '';
+  const errorString = error.toString();
+  
+  // Check for HTTP status codes in error message
+  if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+    return true;
+  }
+  if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
+    return true;
+  }
+  
+  // Check if error has status property
+  if (error.status === 401 || error.status === 403) {
+    return true;
+  }
+  
+  // Check if error response indicates auth failure
+  if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+    return true;
+  }
+  
+  // Network errors should not trigger logout
+  if (errorMessage.includes('Network error') || 
+      errorMessage.includes('Failed to fetch') ||
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('NetworkError') ||
+      errorMessage.includes('ERR_INTERNET_DISCONNECTED') ||
+      errorMessage.includes('ERR_NETWORK_CHANGED') ||
+      errorMessage.includes('ERR_CONNECTION_REFUSED') ||
+      errorMessage.includes('ERR_CONNECTION_RESET') ||
+      errorMessage.includes('ERR_CONNECTION_TIMED_OUT')) {
+    return false;
+  }
+  
+  // Default: if we can't determine, assume it's not an auth error (safer to keep user logged in)
+  return false;
+}
+
+// Verify auth with retry logic for network errors
+async function verifyAuthWithRetry(maxRetries = 2, retryDelay = 1000) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await window.apiRequest('/me');
+      return response;
+    } catch (error) {
+      // If it's an authentication error, don't retry
+      if (isAuthenticationError(error)) {
+        throw error;
+      }
+      
+      // If it's a network error and we have retries left, wait and retry
+      if (attempt < maxRetries) {
+        console.warn(`Auth check failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`, error.message);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        continue;
+      }
+      
+      // All retries exhausted, return null to indicate network error (but not auth error)
+      console.warn('Auth check failed after all retries (network error), keeping user logged in:', error.message);
+      return null;
+    }
+  }
+  return null;
+}
+
 async function apiRequest(endpoint, options = {}) {
   const requestStartTime = Date.now();
   let url = getApiBaseUrl() + endpoint;
@@ -189,15 +303,28 @@ async function apiRequest(endpoint, options = {}) {
 
     // Standard response format: { success: bool, data: any, message: string, error: string }
     if (!response.ok) {
-      throw new Error(data.error || data.message || `Request failed with status ${response.status}`);
+      // Preserve status code in error for authentication checks
+      const apiError = new Error(data.error || data.message || `Request failed with status ${response.status}`);
+      apiError.status = response.status;
+      apiError.response = { status: response.status };
+      throw apiError;
     }
 
     return data;
   } catch (error) {
-    if (error.message.includes('API endpoint returned HTML')) {
+    if (error.message && error.message.includes('API endpoint returned HTML')) {
       throw error; // Re-throw our custom error
     }
-    throw new Error(error.message || 'Network error occurred. Check your API URL and ensure backend is running.');
+    
+    // Preserve status code if available
+    const networkError = new Error(error.message || 'Network error occurred. Check your API URL and ensure backend is running.');
+    if (error.status) {
+      networkError.status = error.status;
+    }
+    if (error.response) {
+      networkError.response = error.response;
+    }
+    throw networkError;
   }
 }
 
@@ -284,9 +411,14 @@ async function init() {
       console.error('Auth check failed:', error);
       // Remove loading text
       if (loadingText.parentNode) loadingText.remove();
-      // Token invalid or expired, show auth
+      // Only log out if it's an actual authentication error, not a network error
+      if (isAuthenticationError(error)) {
       chrome.storage.local.remove(['authToken', 'user']);
       window.showAuthSection();
+      } else {
+        // Network error - keep user logged in, just log the error
+        console.warn('Network error during auth check, keeping user logged in:', error.message);
+      }
     });
     
     // Enable button immediately (user can see the job description)
@@ -310,26 +442,32 @@ async function init() {
     window.updateUserInfo(user);
   }
   
-  // Verify token is still valid (async check)
+  // Verify token is still valid (async check with retry for network errors)
   try {
-    const response = await window.apiRequest('/me');
-    if (response.success) {
+    const response = await verifyAuthWithRetry();
+    if (response && response.success) {
       // Token is valid, update user info
       await chrome.storage.local.set({ user: response.data.user });
       window.updateUserInfo(response.data.user);
       console.log('User authenticated:', response.data.user);
-    } else {
+    } else if (response && !response.success) {
       // Token invalid, show auth
       await chrome.storage.local.remove(['authToken', 'user']);
       window.showAuthSection();
       return;
     }
+    // If response is null, it was a network error and we're keeping user logged in
   } catch (error) {
     console.error('Auth check failed:', error);
-    // Token invalid or expired, show auth
+    // Only log out if it's an actual authentication error
+    if (isAuthenticationError(error)) {
     await chrome.storage.local.remove(['authToken', 'user']);
     window.showAuthSection();
     return;
+    } else {
+      // Network error - keep user logged in
+      console.warn('Network error during auth check, keeping user logged in:', error.message);
+    }
   }
   
   // Check if there's an operation in progress or saved state
@@ -387,19 +525,19 @@ async function init() {
   // If generation is in progress, restore the loading state
   if (generationInProgress && jobDescriptionToRestore) {
     console.log('Generation in progress, restoring loading state...');
-    if (jobText) {
+        if (jobText) {
       jobText.textContent = jobDescriptionToRestore;
-    }
-    window.showTailorSection();
-    
-    // Show loading overlay
-    if (loading) {
-      loading.classList.remove('hidden');
-      if (typeof window.startLoadingMessages === 'function') {
-        window.startLoadingMessages();
-      }
-    }
-    
+        }
+        window.showTailorSection();
+        
+        // Show loading overlay
+        if (loading) {
+          loading.classList.remove('hidden');
+          if (typeof window.startLoadingMessages === 'function') {
+            window.startLoadingMessages();
+          }
+        }
+        
     // Disable the generate button while in progress
     if (tailorBtn) {
       tailorBtn.disabled = true;
@@ -408,7 +546,7 @@ async function init() {
     // Note: The actual API request may still be in progress on the backend
     // The user can see the loading state, and if they wait, results will appear
     // If the request already completed, they may need to refresh or check results
-    return;
+        return;
   }
   
   console.log('Popup initialization state:', {
@@ -1163,7 +1301,7 @@ if (tailorBtn) {
   }, 100);
 }
 
-// Display results
+// Display results - wrapper to ensure expand buttons are set up
 async function displayResults(data) {
   console.log('Displaying results:', {
     hasFullResume: !!data.fullResume,
@@ -1175,18 +1313,50 @@ async function displayResults(data) {
   // Full Resume Preview (backend returns 'fullResume', not 'fullDocument')
   const fullResumeText = data.fullResume || data.fullDocument || '';
   if (fullResumeText && fullResumeText.trim().length > 0) {
+    // Check if content is HTML (contains HTML tags)
+    const isHTML = /<[a-z][\s\S]*>/i.test(fullResumeText);
+    
+    if (isHTML) {
+      // Store HTML version for rich editor
+      fullDocumentContent.dataset.htmlContent = fullResumeText;
+      // Convert HTML to plain text for textarea display
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = fullResumeText;
+      const plainText = convertHtmlToPlainText(tempDiv);
+      fullDocumentContent.value = plainText;
+    } else {
+      // Plain text - use as is
     fullDocumentContent.value = fullResumeText;
+      fullDocumentContent.dataset.htmlContent = ''; // Clear HTML if it was plain text
+    }
   } else {
     console.error('No resume text found in response');
     fullDocumentContent.value = 'Resume not available';
+    fullDocumentContent.dataset.htmlContent = '';
   }
 
   // Cover Letter
   if (data.coverLetter && data.coverLetter.trim().length > 0) {
+    // Check if content is HTML
+    const isHTML = /<[a-z][\s\S]*>/i.test(data.coverLetter);
+    
+    if (isHTML) {
+      // Store HTML version for rich editor
+      coverLetterContent.dataset.htmlContent = data.coverLetter;
+      // Convert HTML to plain text for textarea display
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = data.coverLetter;
+      const plainText = convertHtmlToPlainText(tempDiv);
+      coverLetterContent.value = plainText;
+    } else {
+      // Plain text - use as is
     coverLetterContent.value = data.coverLetter;
+      coverLetterContent.dataset.htmlContent = ''; // Clear HTML if it was plain text
+    }
   } else {
     console.error('No cover letter found in response');
     coverLetterContent.value = 'Cover letter not available';
+    coverLetterContent.dataset.htmlContent = '';
   }
 
   // Store results for download (including download URLs)
@@ -1214,6 +1384,11 @@ async function displayResults(data) {
       await handleRegenerate(data);
     };
   }
+  
+  // Setup expand buttons after results are displayed
+  setTimeout(() => {
+    setupExpandButtons();
+  }, 100);
   
   console.log('=== DOWNLOAD URLS STORED ===');
   console.log('Stored in chrome.storage.local:');
@@ -1502,6 +1677,414 @@ newTailorBtn.addEventListener('click', async () => {
 retryBtn.addEventListener('click', () => {
   init();
 });
+
+// Initialize expanded rich text editor
+function initExpandedEditor() {
+  if (!expandedEditorText || !expandedEditorToolbar) return;
+
+  // Setup toolbar buttons
+  const toolbarButtons = expandedEditorToolbar.querySelectorAll('.toolbar-btn');
+  
+  // Store selection before button click (to prevent loss)
+  let savedSelection = null;
+  
+  // Save selection when mouse enters button area
+  toolbarButtons.forEach(btn => {
+    btn.addEventListener('mousedown', (e) => {
+      // Save selection BEFORE click causes it to be lost
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        // Only save if selection is in the editor
+        if (expandedEditorText && expandedEditorText.contains(range.commonAncestorContainer)) {
+          savedSelection = range.cloneRange();
+        } else {
+          savedSelection = null;
+        }
+      } else {
+        savedSelection = null;
+      }
+    });
+    
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const command = btn.dataset.command;
+      const value = btn.dataset.value || null;
+      
+      if (!command) return;
+      
+      // Immediately focus the editor
+      if (expandedEditorText) {
+        expandedEditorText.focus();
+        
+        const selection = window.getSelection();
+        let range = null;
+        
+        // Restore saved selection if available
+        if (savedSelection) {
+          try {
+            selection.removeAllRanges();
+            selection.addRange(savedSelection);
+            range = savedSelection;
+            savedSelection = null; // Clear after use
+          } catch (err) {
+            console.warn('Could not restore selection:', err);
+            savedSelection = null;
+          }
+        }
+        
+        // If no saved selection, get current selection
+        if (!range && selection && selection.rangeCount > 0) {
+          range = selection.getRangeAt(0);
+          if (!expandedEditorText.contains(range.commonAncestorContainer)) {
+            range = null;
+          }
+        }
+        
+        // If still no selection, create one
+        if (!range) {
+          range = document.createRange();
+          
+          // Find last text node
+          const walker = document.createTreeWalker(
+            expandedEditorText,
+            NodeFilter.SHOW_TEXT,
+            null
+          );
+          
+          let textNode = null;
+          let node;
+          while (node = walker.nextNode()) {
+            textNode = node;
+          }
+          
+          if (textNode) {
+            const textLength = textNode.textContent.length;
+            // For formatting commands, try to select word at cursor
+            if (command === 'bold' || command === 'italic' || command === 'underline') {
+              const text = textNode.textContent;
+              let start = textLength;
+              let end = textLength;
+              
+              // Find word boundaries
+              while (start > 0 && /[\w\u00C0-\u017F]/.test(text[start - 1])) start--;
+              while (end < text.length && /[\w\u00C0-\u017F]/.test(text[end])) end++;
+              
+              if (start < end) {
+                range.setStart(textNode, start);
+                range.setEnd(textNode, end);
+              } else {
+                range.setStart(textNode, textLength);
+                range.setEnd(textNode, textLength);
+              }
+            } else {
+              range.setStart(textNode, textLength);
+              range.setEnd(textNode, textLength);
+            }
+          } else {
+            // No text nodes, create one
+            const newTextNode = document.createTextNode('\u200B');
+            expandedEditorText.appendChild(newTextNode);
+            range.setStart(newTextNode, 0);
+            range.setEnd(newTextNode, 0);
+          }
+          
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }
+      
+      // Execute command immediately (synchronously)
+      try {
+        let success = false;
+        
+        if (value !== null && value !== undefined) {
+          success = document.execCommand(command, false, value);
+        } else {
+          success = document.execCommand(command, false);
+        }
+        
+        if (!success) {
+          console.warn('Command failed:', command, value);
+        }
+        
+        // Update toolbar state
+        setTimeout(() => {
+          updateToolbarState();
+        }, 10);
+        
+        // Keep editor focused
+        if (expandedEditorText) {
+          expandedEditorText.focus();
+        }
+      } catch (err) {
+        console.error('Error executing command:', command, err);
+      }
+    });
+  });
+
+  // Update toolbar button states based on selection
+  function updateToolbarState() {
+    if (!expandedEditorText || expandedEditorText !== document.activeElement) {
+      return; // Editor not focused, don't update
+    }
+    
+    toolbarButtons.forEach(btn => {
+      const command = btn.dataset.command;
+      btn.classList.remove('active');
+      
+      try {
+        if (command === 'bold' && document.queryCommandState('bold')) {
+          btn.classList.add('active');
+        } else if (command === 'italic' && document.queryCommandState('italic')) {
+          btn.classList.add('active');
+        } else if (command === 'underline' && document.queryCommandState('underline')) {
+          btn.classList.add('active');
+        } else if (command === 'formatBlock') {
+          const formatValue = btn.dataset.value;
+          const currentFormat = document.queryCommandValue('formatBlock');
+          if (currentFormat === formatValue) {
+            btn.classList.add('active');
+          }
+        } else if (command === 'justifyLeft' && document.queryCommandState('justifyLeft')) {
+          btn.classList.add('active');
+        } else if (command === 'justifyCenter' && document.queryCommandState('justifyCenter')) {
+          btn.classList.add('active');
+        }
+      } catch (e) {
+        // Some commands might not support queryCommandState
+        console.debug('Could not query command state:', command);
+      }
+    });
+  }
+
+  // Update toolbar on selection change
+  if (expandedEditorText) {
+    expandedEditorText.addEventListener('mouseup', updateToolbarState);
+    expandedEditorText.addEventListener('keyup', updateToolbarState);
+    document.addEventListener('selectionchange', () => {
+      if (expandedEditorText.contains(document.activeElement)) {
+        updateToolbarState();
+      }
+    });
+  }
+}
+
+// Expand button handlers - set up after DOM is ready
+function setupExpandButtons() {
+  console.log('Setting up expand buttons...');
+  const expandResumeBtn = document.getElementById('expand-resume-btn');
+  const expandCoverLetterBtn = document.getElementById('expand-cover-letter-btn');
+
+  console.log('Expand buttons found:', {
+    resumeBtn: !!expandResumeBtn,
+    coverLetterBtn: !!expandCoverLetterBtn
+  });
+
+  if (expandResumeBtn) {
+    // Remove all existing listeners by cloning
+    const newResumeBtn = expandResumeBtn.cloneNode(true);
+    expandResumeBtn.parentNode.replaceChild(newResumeBtn, expandResumeBtn);
+    
+    newResumeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('✅ Expand resume button clicked');
+      openExpandedEditor('resume');
+    });
+    console.log('✅ Resume expand button listener attached');
+  } else {
+    console.warn('❌ Expand resume button not found');
+  }
+
+  if (expandCoverLetterBtn) {
+    // Remove all existing listeners by cloning
+    const newCoverBtn = expandCoverLetterBtn.cloneNode(true);
+    expandCoverLetterBtn.parentNode.replaceChild(newCoverBtn, expandCoverLetterBtn);
+    
+    newCoverBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('✅ Expand cover letter button clicked');
+      openExpandedEditor('cover-letter');
+    });
+    console.log('✅ Cover letter expand button listener attached');
+  } else {
+    console.warn('❌ Expand cover letter button not found');
+  }
+}
+
+function openExpandedEditor(target) {
+  console.log('Opening expanded editor for:', target);
+  
+  if (!expandedEditorOverlay) {
+    console.error('Expanded editor overlay not found');
+    return;
+  }
+  
+  if (!expandedEditorText) {
+    console.error('Expanded editor text element not found');
+    return;
+  }
+
+  // Initialize editor if not already done
+  if (!expandedEditorToolbar || !expandedEditorToolbar.querySelector('.toolbar-btn')?.hasAttribute('data-initialized')) {
+    console.log('Initializing editor...');
+    initExpandedEditor();
+    const firstBtn = expandedEditorToolbar?.querySelector('.toolbar-btn');
+    if (firstBtn) firstBtn.setAttribute('data-initialized', 'true');
+  }
+
+  currentEditorTarget = target;
+  
+  // Get content from textarea
+  let content = '';
+  let htmlContent = '';
+  
+  if (target === 'resume' && fullDocumentContent) {
+    content = fullDocumentContent.value || '';
+    htmlContent = fullDocumentContent.dataset.htmlContent || '';
+    expandedEditorTitle.textContent = 'Edit Resume';
+    console.log('Resume content length:', content.length, 'HTML content length:', htmlContent.length);
+  } else if (target === 'cover-letter' && coverLetterContent) {
+    content = coverLetterContent.value || '';
+    htmlContent = coverLetterContent.dataset.htmlContent || '';
+    expandedEditorTitle.textContent = 'Edit Cover Letter';
+    console.log('Cover letter content length:', content.length, 'HTML content length:', htmlContent.length);
+  }
+
+  // If we have HTML content stored, use it; otherwise convert plain text to HTML
+  if (htmlContent && htmlContent.trim()) {
+    console.log('Loading HTML content into editor');
+    expandedEditorText.innerHTML = htmlContent;
+  } else if (content && content.trim()) {
+    console.log('Converting plain text to HTML');
+    // Convert plain text to HTML (preserve line breaks)
+    const convertedHtml = content
+      .replace(/\n\n+/g, '</p><p>')
+      .replace(/\n/g, '<br>');
+    expandedEditorText.innerHTML = convertedHtml ? `<p>${convertedHtml}</p>` : '<p><br></p>';
+  } else {
+    console.log('No content, starting with empty editor');
+    expandedEditorText.innerHTML = '<p><br></p>';
+  }
+
+  // Show overlay
+  console.log('Showing editor overlay');
+  expandedEditorOverlay.classList.remove('hidden');
+  
+  // Focus editor
+  setTimeout(() => {
+    if (expandedEditorText) {
+      expandedEditorText.focus();
+      // Move cursor to end
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(expandedEditorText);
+        range.collapse(false);
+        const selection = window.getSelection();
+        if (selection) {
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      } catch (e) {
+        console.warn('Could not set cursor position:', e);
+      }
+    }
+  }, 150);
+}
+
+function closeExpandedEditor(save = false) {
+  if (!expandedEditorOverlay || !expandedEditorText || !currentEditorTarget) return;
+
+  if (save) {
+    // Get HTML content from contentEditable
+    const htmlContent = expandedEditorText.innerHTML;
+    
+    // Convert HTML to plain text (preserve formatting as much as possible)
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    
+    // Convert to text with line breaks
+    let textContent = '';
+    const paragraphs = tempDiv.querySelectorAll('p');
+    
+    if (paragraphs.length > 0) {
+      paragraphs.forEach((p, index) => {
+        if (index > 0) textContent += '\n\n';
+        const brReplaced = p.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+        const textOnly = brReplaced.replace(/<[^>]*>/g, '');
+        textContent += textOnly;
+      });
+    } else {
+      const brReplaced = htmlContent.replace(/<br\s*\/?>/gi, '\n');
+      textContent = brReplaced.replace(/<[^>]*>/g, '');
+    }
+    
+    textContent = textContent.replace(/\n{3,}/g, '\n\n').trim();
+
+    // Save to textarea
+    if (currentEditorTarget === 'resume' && fullDocumentContent) {
+      fullDocumentContent.value = textContent;
+      fullDocumentContent.dataset.htmlContent = htmlContent;
+    } else if (currentEditorTarget === 'cover-letter' && coverLetterContent) {
+      coverLetterContent.value = textContent;
+      coverLetterContent.dataset.htmlContent = htmlContent;
+    }
+  }
+
+  expandedEditorOverlay.classList.add('hidden');
+  currentEditorTarget = null;
+}
+
+// Close button handlers
+if (expandedEditorClose) {
+  expandedEditorClose.addEventListener('click', () => {
+    closeExpandedEditor(false);
+  });
+}
+
+if (expandedEditorCancel) {
+  expandedEditorCancel.addEventListener('click', () => {
+    closeExpandedEditor(false);
+  });
+}
+
+if (expandedEditorSave) {
+  expandedEditorSave.addEventListener('click', () => {
+    closeExpandedEditor(true);
+  });
+}
+
+// Close on ESC key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && expandedEditorOverlay && !expandedEditorOverlay.classList.contains('hidden')) {
+    closeExpandedEditor(false);
+  }
+});
+
+// Close on overlay background click
+if (expandedEditorOverlay) {
+  expandedEditorOverlay.addEventListener('click', (e) => {
+    if (e.target === expandedEditorOverlay) {
+      closeExpandedEditor(false);
+    }
+  });
+}
+
+// Initialize editor and buttons on page load
+function initializeEditor() {
+  setupExpandButtons();
+  initExpandedEditor();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeEditor);
+} else {
+  initializeEditor();
+}
 
 // Verify button exists and event listeners are attached
 console.log('=== POPUP SCRIPT LOADED ===');

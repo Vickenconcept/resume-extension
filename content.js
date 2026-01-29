@@ -68,12 +68,12 @@ function createTailorBubble() {
     e.stopPropagation();
 
     try {
-      const selection = window.getSelection();
+    const selection = window.getSelection();
       const text = (selection && selection.toString().trim()) || lastSelectedText || '';
-      if (!text) {
+    if (!text) {
         hideTailorBubble();
-        return;
-      }
+      return;
+    }
 
       // Store selected text so popup can pick it up
       await chrome.storage.local.set({ selectedJobDescription: text });
@@ -99,7 +99,7 @@ function createTailorBubble() {
 function hideTailorBubble() {
   if (tailorBubble) {
     tailorBubble.style.display = 'none';
-  }
+}
   lastValidSelectionTime = 0;
 }
 
@@ -192,7 +192,7 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
   document.addEventListener('selectionchange', handleSelectionChange);
 } else {
   window.addEventListener('DOMContentLoaded', () => {
-    document.addEventListener('mouseup', handleSelectionChange);
+document.addEventListener('mouseup', handleSelectionChange);
     document.addEventListener('keyup', handleSelectionChange);
     document.addEventListener('scroll', handleSelectionChange, true);
     document.addEventListener('selectionchange', handleSelectionChange);

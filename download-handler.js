@@ -15,9 +15,24 @@ window.DownloadHandler = {
     // Note: Download button loading state is handled in popup.js
 
     try {
-      // Get current edited content from textareas
-      const currentResume = fullDocumentContent?.value || '';
-      const currentCoverLetter = coverLetterContent?.value || '';
+      // Get current edited content - prefer HTML if available (from rich editor)
+      let currentResume = '';
+      let currentCoverLetter = '';
+      
+      // Check for HTML content from rich editor (stored in data attributes)
+      if (fullDocumentContent?.dataset.htmlContent) {
+        currentResume = fullDocumentContent.dataset.htmlContent;
+        console.log('Using HTML content from rich editor for resume');
+      } else {
+        currentResume = fullDocumentContent?.value || '';
+      }
+      
+      if (coverLetterContent?.dataset.htmlContent) {
+        currentCoverLetter = coverLetterContent.dataset.htmlContent;
+        console.log('Using HTML content from rich editor for cover letter');
+      } else {
+        currentCoverLetter = coverLetterContent?.value || '';
+      }
 
       // Get original content for comparison
       const originalResume = lastResults.fullResume || lastResults.fullDocument || '';
@@ -27,10 +42,12 @@ window.DownloadHandler = {
       const hasEdits = currentResume !== originalResume || currentCoverLetter !== originalCoverLetter;
 
       // Always use API endpoint to support edited content and create version records
+      // Send HTML content if available, otherwise send plain text
       const contentToDownload = {
         fullResume: currentResume || originalResume,
         fullDocument: currentResume || originalResume,
         coverLetter: currentCoverLetter || originalCoverLetter,
+        isHTML: !!(fullDocumentContent?.dataset.htmlContent || coverLetterContent?.dataset.htmlContent), // Flag to indicate HTML content
       };
 
       let downloadUrl = `${window.getApiBaseUrl()}/download-tailored-resume`;

@@ -231,105 +231,181 @@ function createSettingsResumeRow(resume) {
   }
   tr.appendChild(checkboxCell);
 
-  // Default column
-  const defaultCell = document.createElement('td');
-  defaultCell.className = 'default-indicator';
-  if (resume.isDefault) {
-    const badge = document.createElement('span');
-    badge.className = 'default-badge';
-    badge.textContent = 'Default';
-    defaultCell.appendChild(badge);
-  } else {
-    defaultCell.textContent = '—';
-    defaultCell.style.color = '#9ca3af';
-  }
-  tr.appendChild(defaultCell);
-
-  // Name column
+  // Name column (with Default tag and uploaded date tag)
   const nameCell = document.createElement('td');
   nameCell.className = 'resume-name-cell';
-  nameCell.textContent = resume.displayName || resume.filename;
   nameCell.style.fontWeight = '600';
   nameCell.style.fontSize = '12px';
+  
+  // Create container for resume name and tags
+  const nameContainer = document.createElement('div');
+  nameContainer.style.display = 'flex';
+  nameContainer.style.alignItems = 'center';
+  nameContainer.style.gap = '6px';
+  nameContainer.style.flexWrap = 'wrap';
+  
+  const resumeName = document.createElement('span');
+  resumeName.textContent = resume.displayName || resume.filename;
+  nameContainer.appendChild(resumeName);
+  
+  // Create Default tag if this is the default resume
+  if (resume.isDefault) {
+    const defaultTag = document.createElement('span');
+    defaultTag.textContent = 'Default';
+    defaultTag.style.fontSize = '10px';
+    defaultTag.style.color = '#3b82f6';
+    defaultTag.style.backgroundColor = '#dbeafe';
+    defaultTag.style.padding = '2px 6px';
+    defaultTag.style.borderRadius = '4px';
+    defaultTag.style.fontWeight = '500';
+    defaultTag.style.whiteSpace = 'nowrap';
+    nameContainer.appendChild(defaultTag);
+  }
+  
+  // Create uploaded date tag
+  const dateTag = document.createElement('span');
+  dateTag.textContent = formatDate(resume.uploadedAt);
+  dateTag.style.fontSize = '10px';
+  dateTag.style.color = '#6b7280';
+  dateTag.style.backgroundColor = '#f3f4f6';
+  dateTag.style.padding = '2px 6px';
+  dateTag.style.borderRadius = '4px';
+  dateTag.style.fontWeight = '400';
+  dateTag.style.whiteSpace = 'nowrap';
+  nameContainer.appendChild(dateTag);
+  
+  nameCell.appendChild(nameContainer);
   tr.appendChild(nameCell);
-
-  // Filename column
-  const filenameCell = document.createElement('td');
-  filenameCell.className = 'resume-filename-cell';
-  filenameCell.textContent = resume.filename;
-  filenameCell.style.fontWeight = '600';
-  filenameCell.style.fontSize = '12px';
-  tr.appendChild(filenameCell);
-
-  // Uploaded date column
-  const dateCell = document.createElement('td');
-  dateCell.className = 'resume-date-cell';
-  dateCell.textContent = formatDate(resume.uploadedAt);
-  tr.appendChild(dateCell);
 
   // Actions column
   const actionsCell = document.createElement('td');
   actionsCell.className = 'resume-actions-cell';
+  actionsCell.style.position = 'relative';
 
-  if (!resume.isDefault) {
-    const setDefaultBtn = document.createElement('button');
-    setDefaultBtn.className = 'icon-btn primary';
-    setDefaultBtn.setAttribute('data-tooltip', 'Set as Default');
-    setDefaultBtn.innerHTML = `
+  // Preview button (eye icon) - always visible
+  if (resume.cloudinaryUrl) {
+    const previewBtn = document.createElement('button');
+    previewBtn.className = 'icon-btn';
+    previewBtn.setAttribute('data-tooltip', 'Preview');
+    previewBtn.innerHTML = `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
       </svg>
     `;
-    setDefaultBtn.addEventListener('click', async () => {
-      if (isButtonLoading(setDefaultBtn)) return;
-      setButtonLoading(setDefaultBtn, true);
-      try {
-        await setDefaultResume(resume.resumeId);
-      } finally {
-        setButtonLoading(setDefaultBtn, false);
-      }
+    previewBtn.addEventListener('click', async () => {
+      await previewResume(resume);
     });
-    actionsCell.appendChild(setDefaultBtn);
+    actionsCell.appendChild(previewBtn);
   }
 
-  const editBtn = document.createElement('button');
-  editBtn.className = 'icon-btn';
-  editBtn.setAttribute('data-tooltip', 'Rename');
-  editBtn.innerHTML = `
+  // Dropdown menu button (three dots)
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'icon-btn menu-trigger';
+  menuBtn.setAttribute('data-tooltip', 'More actions');
+  menuBtn.innerHTML = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      <circle cx="12" cy="12" r="1"></circle>
+      <circle cx="12" cy="5" r="1"></circle>
+      <circle cx="12" cy="19" r="1"></circle>
     </svg>
   `;
-  editBtn.addEventListener('click', () => {
-    editResumeName(resume.resumeId);
-  });
-  actionsCell.appendChild(editBtn);
 
-  if (!resume.isDefault) {
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'icon-btn danger';
-    deleteBtn.setAttribute('data-tooltip', 'Delete');
-    deleteBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="3 6 5 6 21 6"></polyline>
-        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        <line x1="10" y1="11" x2="10" y2="17"></line>
-        <line x1="14" y1="11" x2="14" y2="17"></line>
-      </svg>
-    `;
-    deleteBtn.addEventListener('click', async () => {
-      if (isButtonLoading(deleteBtn)) return;
-      setButtonLoading(deleteBtn, true);
-      try {
-        await deleteResume(resume.resumeId, resume.displayName || resume.filename);
-      } finally {
-        setButtonLoading(deleteBtn, false);
+  // Create dropdown menu
+  const dropdown = document.createElement('div');
+  dropdown.className = 'actions-dropdown hidden';
+  dropdown.innerHTML = `
+    <div class="dropdown-content">
+      ${!resume.isDefault ? `
+        <button class="dropdown-item" data-action="set-default">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          <span>Set as Default</span>
+        </button>
+      ` : ''}
+      <button class="dropdown-item" data-action="edit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        <span>Rename</span>
+      </button>
+      ${!resume.isDefault ? `
+        <button class="dropdown-item danger" data-action="delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          <span>Delete</span>
+        </button>
+      ` : ''}
+    </div>
+  `;
+
+  // Handle dropdown item clicks
+  dropdown.addEventListener('click', async (e) => {
+    const action = e.target.closest('.dropdown-item')?.dataset.action;
+    if (!action) return;
+
+    dropdown.classList.add('hidden');
+    actionsCell.classList.remove('dropdown-open');
+    const parentRow = actionsCell.closest('tr');
+    if (parentRow) parentRow.classList.remove('dropdown-open');
+    
+    if (action === 'set-default') {
+      await setDefaultResume(resume.resumeId);
+    } else if (action === 'edit') {
+      editResumeName(resume.resumeId);
+    } else if (action === 'delete') {
+      await deleteResume(resume.resumeId, resume.displayName || resume.filename);
+    }
+  });
+
+  // Toggle dropdown
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Close all other dropdowns
+    document.querySelectorAll('.actions-dropdown').forEach(d => {
+      if (d !== dropdown) {
+        d.classList.add('hidden');
+        // Remove dropdown-open class from parent action cell and row
+        const parentCell = d.closest('.resume-actions-cell');
+        if (parentCell) parentCell.classList.remove('dropdown-open');
+        const parentRow = parentCell?.closest('tr');
+        if (parentRow) parentRow.classList.remove('dropdown-open');
       }
     });
-    actionsCell.appendChild(deleteBtn);
-  }
+    
+    const isOpening = dropdown.classList.contains('hidden');
+    dropdown.classList.toggle('hidden');
+    
+    // Add/remove dropdown-open class to ensure proper z-index
+    if (isOpening) {
+      actionsCell.classList.add('dropdown-open');
+      const parentRow = actionsCell.closest('tr');
+      if (parentRow) parentRow.classList.add('dropdown-open');
+    } else {
+      actionsCell.classList.remove('dropdown-open');
+      const parentRow = actionsCell.closest('tr');
+      if (parentRow) parentRow.classList.remove('dropdown-open');
+    }
+  });
 
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!dropdown.contains(e.target) && !menuBtn.contains(e.target)) {
+      dropdown.classList.add('hidden');
+      actionsCell.classList.remove('dropdown-open');
+      const parentRow = actionsCell.closest('tr');
+      if (parentRow) parentRow.classList.remove('dropdown-open');
+    }
+  });
+
+  actionsCell.appendChild(menuBtn);
+  actionsCell.appendChild(dropdown);
   tr.appendChild(actionsCell);
 
   return tr;
@@ -613,11 +689,35 @@ function createSettingsVersionRow(version) {
   checkboxCell.appendChild(checkbox);
   tr.appendChild(checkboxCell);
 
-  // Resume column
+  // Resume column (with created date tag)
   const resumeCell = document.createElement('td');
   resumeCell.style.fontWeight = '600';
   resumeCell.style.fontSize = '12px';
-  resumeCell.textContent = version.resumeName;
+  
+  // Create container for resume name and date tag
+  const resumeContainer = document.createElement('div');
+  resumeContainer.style.display = 'flex';
+  resumeContainer.style.alignItems = 'center';
+  resumeContainer.style.gap = '6px';
+  resumeContainer.style.flexWrap = 'wrap';
+  
+  const resumeName = document.createElement('span');
+  resumeName.textContent = version.resumeName;
+  resumeContainer.appendChild(resumeName);
+  
+  // Create small date tag
+  const dateTag = document.createElement('span');
+  dateTag.textContent = formatDate(version.createdAt);
+  dateTag.style.fontSize = '10px';
+  dateTag.style.color = '#6b7280';
+  dateTag.style.backgroundColor = '#f3f4f6';
+  dateTag.style.padding = '2px 6px';
+  dateTag.style.borderRadius = '4px';
+  dateTag.style.fontWeight = '400';
+  dateTag.style.whiteSpace = 'nowrap';
+  resumeContainer.appendChild(dateTag);
+  
+  resumeCell.appendChild(resumeContainer);
   tr.appendChild(resumeCell);
 
   // Version Name column
@@ -627,88 +727,136 @@ function createSettingsVersionRow(version) {
   versionNameCell.style.fontSize = '12px';
   tr.appendChild(versionNameCell);
 
-  // Created date column
-  const createdCell = document.createElement('td');
-  createdCell.textContent = formatDate(version.createdAt);
-  tr.appendChild(createdCell);
-
-  // Updated date column
-  const updatedCell = document.createElement('td');
-  updatedCell.textContent = formatDate(version.updatedAt);
-  tr.appendChild(updatedCell);
-
   // Actions column
   const actionsCell = document.createElement('td');
   actionsCell.className = 'resume-actions-cell';
+  actionsCell.style.position = 'relative';
 
-  // Promote to main button (only show if not already current)
-  if (!version.isCurrent) {
-    const promoteBtn = document.createElement('button');
-    promoteBtn.className = 'icon-btn primary';
-    promoteBtn.setAttribute('data-tooltip', 'Promote to Main Resume');
-    promoteBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-      </svg>
-    `;
-    promoteBtn.addEventListener('click', async () => {
-      if (isButtonLoading(promoteBtn)) return;
-      setButtonLoading(promoteBtn, true);
-      try {
-        await promoteVersionToMain(version.versionId, version.versionName);
-      } finally {
-        setButtonLoading(promoteBtn, false);
-      }
-    });
-    actionsCell.appendChild(promoteBtn);
-  }
-
-  // Download buttons
+  // Preview button (eye icon) - always visible if document exists
   if (version.hasDocx || version.hasPdf) {
-    const downloadBtn = document.createElement('button');
-    downloadBtn.className = 'icon-btn';
-    downloadBtn.setAttribute('data-tooltip', 'Download');
-    downloadBtn.innerHTML = `
+    const previewBtn = document.createElement('button');
+    previewBtn.className = 'icon-btn';
+    previewBtn.setAttribute('data-tooltip', 'Preview');
+    previewBtn.innerHTML = `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="7 10 12 15 17 10"></polyline>
-        <line x1="12" y1="15" x2="12" y2="3"></line>
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
       </svg>
     `;
-    downloadBtn.addEventListener('click', async () => {
-      if (isButtonLoading(downloadBtn)) return;
-      setButtonLoading(downloadBtn, true);
-      try {
-        await downloadVersion(version);
-      } finally {
-        setButtonLoading(downloadBtn, false);
-      }
+    previewBtn.addEventListener('click', async () => {
+      await previewVersion(version);
     });
-    actionsCell.appendChild(downloadBtn);
+    actionsCell.appendChild(previewBtn);
   }
 
-  // Delete button
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'icon-btn danger';
-  deleteBtn.setAttribute('data-tooltip', 'Delete');
-  deleteBtn.innerHTML = `
+  // Dropdown menu button (three dots)
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'icon-btn menu-trigger';
+  menuBtn.setAttribute('data-tooltip', 'More actions');
+  menuBtn.innerHTML = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polyline points="3 6 5 6 21 6"></polyline>
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-      <line x1="10" y1="11" x2="10" y2="17"></line>
-      <line x1="14" y1="11" x2="14" y2="17"></line>
+      <circle cx="12" cy="12" r="1"></circle>
+      <circle cx="12" cy="5" r="1"></circle>
+      <circle cx="12" cy="19" r="1"></circle>
     </svg>
   `;
-  deleteBtn.addEventListener('click', async () => {
-    if (isButtonLoading(deleteBtn)) return;
-    setButtonLoading(deleteBtn, true);
-    try {
+
+  // Create dropdown menu
+  const dropdown = document.createElement('div');
+  dropdown.className = 'actions-dropdown hidden';
+  dropdown.innerHTML = `
+    <div class="dropdown-content">
+      ${!version.isCurrent ? `
+        <button class="dropdown-item" data-action="promote">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          <span>Promote to Main</span>
+        </button>
+      ` : ''}
+      ${version.hasDocx || version.hasPdf ? `
+        <button class="dropdown-item" data-action="download">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Download</span>
+        </button>
+      ` : ''}
+      <button class="dropdown-item danger" data-action="delete">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          <line x1="10" y1="11" x2="10" y2="17"></line>
+          <line x1="14" y1="11" x2="14" y2="17"></line>
+        </svg>
+        <span>Delete</span>
+      </button>
+    </div>
+  `;
+
+  // Handle dropdown item clicks
+  dropdown.addEventListener('click', async (e) => {
+    const action = e.target.closest('.dropdown-item')?.dataset.action;
+    if (!action) return;
+
+    dropdown.classList.add('hidden');
+    actionsCell.classList.remove('dropdown-open');
+    const parentRow = actionsCell.closest('tr');
+    if (parentRow) parentRow.classList.remove('dropdown-open');
+    
+    if (action === 'promote') {
+      await promoteVersionToMain(version.versionId, version.versionName);
+    } else if (action === 'download') {
+      await downloadVersion(version);
+    } else if (action === 'delete') {
       await deleteVersion(version.versionId, version.versionName);
-    } finally {
-      setButtonLoading(deleteBtn, false);
     }
   });
-  actionsCell.appendChild(deleteBtn);
+
+  // Toggle dropdown
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Close all other dropdowns
+    document.querySelectorAll('.actions-dropdown').forEach(d => {
+      if (d !== dropdown) {
+        d.classList.add('hidden');
+        // Remove dropdown-open class from parent action cell and row
+        const parentCell = d.closest('.resume-actions-cell');
+        if (parentCell) parentCell.classList.remove('dropdown-open');
+        const parentRow = parentCell?.closest('tr');
+        if (parentRow) parentRow.classList.remove('dropdown-open');
+      }
+    });
+    
+    const isOpening = dropdown.classList.contains('hidden');
+    dropdown.classList.toggle('hidden');
+    
+    // Add/remove dropdown-open class to ensure proper z-index
+    if (isOpening) {
+      actionsCell.classList.add('dropdown-open');
+      const parentRow = actionsCell.closest('tr');
+      if (parentRow) parentRow.classList.add('dropdown-open');
+    } else {
+      actionsCell.classList.remove('dropdown-open');
+      const parentRow = actionsCell.closest('tr');
+      if (parentRow) parentRow.classList.remove('dropdown-open');
+    }
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!dropdown.contains(e.target) && !menuBtn.contains(e.target)) {
+      dropdown.classList.add('hidden');
+      actionsCell.classList.remove('dropdown-open');
+      const parentRow = actionsCell.closest('tr');
+      if (parentRow) parentRow.classList.remove('dropdown-open');
+    }
+  });
+
+  actionsCell.appendChild(menuBtn);
+  actionsCell.appendChild(dropdown);
 
   tr.appendChild(actionsCell);
 
@@ -740,6 +888,183 @@ async function promoteVersionToMain(versionId, versionName) {
   } catch (error) {
     console.error('Promote version error:', error);
     showSettingsError('Failed to promote version: ' + error.message);
+  }
+}
+
+async function previewVersion(version) {
+  try {
+    // Use download URLs from version data
+    const downloadUrls = version.downloadUrls || {};
+    const docxUrl = downloadUrls.docx;
+    const pdfUrl = downloadUrls.pdf;
+
+    // Prefer PDF for preview, fallback to DOCX
+    let url = pdfUrl || docxUrl;
+    if (!url) {
+      showSettingsError('Preview URL not available for this version');
+      return;
+    }
+
+    // For DOCX files, use Google Docs viewer or convert to PDF viewer
+    if (url.includes('.docx') || url.endsWith('.docx')) {
+      // Use Google Docs viewer for DOCX files
+      url = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+    } else if (url.includes('.pdf') || url.endsWith('.pdf')) {
+      // For PDF, use the direct URL (browsers can display PDFs natively)
+      // Or use Google Docs viewer for better compatibility
+      url = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+    }
+
+    // Show preview overlay
+    const overlay = document.getElementById('document-preview-overlay');
+    const iframe = document.getElementById('document-preview-iframe');
+    const title = document.getElementById('document-preview-title');
+    const closeBtn = document.getElementById('document-preview-close');
+
+    if (overlay && iframe && title) {
+      // Set title
+      const versionName = version.versionName || 'Resume Version';
+      const resumeName = version.resumeName || 'Resume';
+      title.textContent = `${resumeName} - ${versionName}`;
+
+      // Set iframe source
+      iframe.src = url;
+
+      // Show overlay
+      overlay.classList.remove('hidden');
+
+      // Close button handler
+      if (closeBtn) {
+        const closeHandler = () => {
+          overlay.classList.add('hidden');
+          iframe.src = ''; // Clear iframe to stop loading
+          closeBtn.removeEventListener('click', closeHandler);
+        };
+        closeBtn.addEventListener('click', closeHandler);
+
+        // Also close on overlay background click
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) {
+            closeHandler();
+          }
+        });
+
+        // Close on ESC key
+        const escHandler = (e) => {
+          if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+            closeHandler();
+            document.removeEventListener('keydown', escHandler);
+          }
+        };
+        document.addEventListener('keydown', escHandler);
+      }
+    } else {
+      // Fallback: open in new tab if overlay elements not found
+      window.open(url, '_blank');
+    }
+  } catch (error) {
+    console.error('Preview version error:', error);
+    showSettingsError('Failed to preview version: ' + error.message);
+  }
+}
+
+async function previewResume(resume) {
+  try {
+    const url = resume.cloudinaryUrl;
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      console.error('Invalid or missing cloudinaryUrl:', { resume });
+      showSettingsError('Preview URL not available for this resume');
+      return;
+    }
+
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch (e) {
+      console.error('Invalid URL format:', url);
+      showSettingsError('Invalid preview URL format');
+      return;
+    }
+
+    console.log('Previewing resume:', { url, resumeId: resume.resumeId, filename: resume.filename });
+
+    // Determine file type and choose preview method
+    let previewUrl = url;
+    const isPdf = url.includes('.pdf') || url.endsWith('.pdf') || url.toLowerCase().includes('pdf');
+    const isDocx = url.includes('.docx') || url.endsWith('.docx') || url.toLowerCase().includes('docx');
+    
+    if (isPdf) {
+      // For PDFs, try direct URL first (browsers can display PDFs natively)
+      // If that doesn't work, fallback to Google Docs viewer
+      previewUrl = url;
+    } else if (isDocx) {
+      // For DOCX, use Google Docs viewer
+      previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+    } else {
+      // Unknown type, try Google Docs viewer
+      previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+    }
+
+    console.log('Preview URL:', previewUrl, 'isPdf:', isPdf, 'isDocx:', isDocx);
+
+    // Show preview overlay
+    const overlay = document.getElementById('document-preview-overlay');
+    const iframe = document.getElementById('document-preview-iframe');
+    const title = document.getElementById('document-preview-title');
+    const closeBtn = document.getElementById('document-preview-close');
+
+    if (!overlay || !iframe || !title) {
+      console.error('Preview overlay elements not found');
+      // Fallback: open in new tab if overlay elements not found
+      window.open(url, '_blank');
+      return;
+    }
+
+    // Set title
+    const resumeName = resume.displayName || resume.filename || 'Resume';
+    title.textContent = resumeName;
+
+    // Use Google Docs viewer (same as Resume Versions)
+    if (url.includes('.docx') || url.endsWith('.docx')) {
+      previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+    } else if (url.includes('.pdf') || url.endsWith('.pdf')) {
+      previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+    }
+
+    // Set iframe source (same order as previewVersion)
+    iframe.src = previewUrl;
+
+    // Show overlay (same as previewVersion)
+    overlay.classList.remove('hidden');
+
+    // Close button handler (same as previewVersion)
+    if (closeBtn) {
+      const closeHandler = () => {
+        overlay.classList.add('hidden');
+        iframe.src = ''; // Clear iframe to stop loading
+        closeBtn.removeEventListener('click', closeHandler);
+      };
+      closeBtn.addEventListener('click', closeHandler);
+
+      // Also close on overlay background click
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          closeHandler();
+        }
+      });
+
+      // Close on ESC key
+      const escHandler = (e) => {
+        if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+          closeHandler();
+          document.removeEventListener('keydown', escHandler);
+        }
+      };
+      document.addEventListener('keydown', escHandler);
+    }
+  } catch (error) {
+    console.error('Preview resume error:', error);
+    showSettingsError('Failed to preview resume: ' + error.message);
   }
 }
 
