@@ -134,10 +134,13 @@ function displaySettingsResumes(resumes, pagination) {
   const emptyState = document.getElementById('settings-empty-state');
   const paginationContainer = document.getElementById('settings-pagination');
 
+  const paginationContainerTop = document.getElementById('settings-pagination-top');
+
   if (!resumes || resumes.length === 0) {
     if (table) table.style.display = 'none';
     if (emptyState) emptyState.classList.remove('hidden');
     if (paginationContainer) paginationContainer.classList.add('hidden');
+    if (paginationContainerTop) paginationContainerTop.classList.add('hidden');
     return;
   }
 
@@ -170,37 +173,60 @@ function displaySettingsResumes(resumes, pagination) {
 }
 
 function updatePagination(pagination) {
+  // Bottom pagination
   const paginationContainer = document.getElementById('settings-pagination');
   const paginationInfo = document.getElementById('pagination-info');
   const prevBtn = document.getElementById('pagination-prev');
   const nextBtn = document.getElementById('pagination-next');
 
+  // Top pagination
+  const paginationContainerTop = document.getElementById('settings-pagination-top');
+  const paginationInfoTop = document.getElementById('pagination-info-top');
+  const prevBtnTop = document.getElementById('pagination-prev-top');
+  const nextBtnTop = document.getElementById('pagination-next-top');
+
+  const paginationText = `Showing ${((pagination.page - 1) * pagination.limit) + 1}-${Math.min(pagination.page * pagination.limit, pagination.total)} of ${pagination.total}`;
+  const handlePrev = () => {
+    if (pagination.hasPrev) {
+      window.loadSettingsResumes(pagination.page - 1);
+    }
+  };
+  const handleNext = () => {
+    if (pagination.hasNext) {
+      window.loadSettingsResumes(pagination.page + 1);
+    }
+  };
+
+  // Update bottom pagination
   if (paginationContainer) {
     paginationContainer.classList.remove('hidden');
   }
-
   if (paginationInfo) {
-    const start = ((pagination.page - 1) * pagination.limit) + 1;
-    const end = Math.min(pagination.page * pagination.limit, pagination.total);
-    paginationInfo.textContent = `Showing ${start}-${end} of ${pagination.total}`;
+    paginationInfo.textContent = paginationText;
   }
-
   if (prevBtn) {
     prevBtn.disabled = !pagination.hasPrev;
-    prevBtn.onclick = () => {
-      if (pagination.hasPrev) {
-        window.loadSettingsResumes(pagination.page - 1);
-      }
-    };
+    prevBtn.onclick = handlePrev;
   }
-
   if (nextBtn) {
     nextBtn.disabled = !pagination.hasNext;
-    nextBtn.onclick = () => {
-      if (pagination.hasNext) {
-        window.loadSettingsResumes(pagination.page + 1);
-      }
-    };
+    nextBtn.onclick = handleNext;
+  }
+
+  // Update top pagination
+  if (paginationContainerTop) {
+    paginationContainerTop.classList.remove('hidden');
+  }
+  if (paginationInfoTop) {
+    paginationInfoTop.textContent = paginationText;
+  }
+  if (prevBtnTop) {
+    prevBtnTop.disabled = !pagination.hasPrev;
+    prevBtnTop.onclick = handlePrev;
+  }
+  if (nextBtnTop) {
+    nextBtnTop.disabled = !pagination.hasNext;
+    nextBtnTop.onclick = handleNext;
   }
 }
 
@@ -599,12 +625,14 @@ function displaySettingsVersions(versions, pagination) {
   const tbody = document.getElementById('settings-versions-tbody');
   const emptyState = document.getElementById('settings-versions-empty-state');
   const paginationContainer = document.getElementById('versions-pagination');
+  const paginationContainerTop = document.getElementById('versions-pagination-top');
   const bulkActions = document.getElementById('versions-bulk-actions');
 
   if (!versions || versions.length === 0) {
     if (table) table.style.display = 'none';
     if (emptyState) emptyState.classList.remove('hidden');
     if (paginationContainer) paginationContainer.classList.add('hidden');
+    if (paginationContainerTop) paginationContainerTop.classList.add('hidden');
     if (bulkActions) bulkActions.classList.add('hidden');
     selectedVersionIds.clear();
     return;
@@ -631,37 +659,60 @@ function displaySettingsVersions(versions, pagination) {
 }
 
 function updateVersionsPagination(pagination) {
+  // Bottom pagination
   const paginationContainer = document.getElementById('versions-pagination');
   const paginationInfo = document.getElementById('versions-pagination-info');
   const prevBtn = document.getElementById('versions-pagination-prev');
   const nextBtn = document.getElementById('versions-pagination-next');
 
+  // Top pagination
+  const paginationContainerTop = document.getElementById('versions-pagination-top');
+  const paginationInfoTop = document.getElementById('versions-pagination-info-top');
+  const prevBtnTop = document.getElementById('versions-pagination-prev-top');
+  const nextBtnTop = document.getElementById('versions-pagination-next-top');
+
+  const paginationText = `Showing ${((pagination.page - 1) * pagination.limit) + 1}-${Math.min(pagination.page * pagination.limit, pagination.total)} of ${pagination.total}`;
+  const handlePrev = () => {
+    if (pagination.hasPrev) {
+      window.loadSettingsVersions(pagination.page - 1);
+    }
+  };
+  const handleNext = () => {
+    if (pagination.hasNext) {
+      window.loadSettingsVersions(pagination.page + 1);
+    }
+  };
+
+  // Update bottom pagination
   if (paginationContainer) {
     paginationContainer.classList.remove('hidden');
   }
-
   if (paginationInfo) {
-    const start = ((pagination.page - 1) * pagination.limit) + 1;
-    const end = Math.min(pagination.page * pagination.limit, pagination.total);
-    paginationInfo.textContent = `Showing ${start}-${end} of ${pagination.total}`;
+    paginationInfo.textContent = paginationText;
   }
-
   if (prevBtn) {
     prevBtn.disabled = !pagination.hasPrev;
-    prevBtn.onclick = () => {
-      if (pagination.hasPrev) {
-        window.loadSettingsVersions(pagination.page - 1);
-      }
-    };
+    prevBtn.onclick = handlePrev;
   }
-
   if (nextBtn) {
     nextBtn.disabled = !pagination.hasNext;
-    nextBtn.onclick = () => {
-      if (pagination.hasNext) {
-        window.loadSettingsVersions(pagination.page + 1);
-      }
-    };
+    nextBtn.onclick = handleNext;
+  }
+
+  // Update top pagination
+  if (paginationContainerTop) {
+    paginationContainerTop.classList.remove('hidden');
+  }
+  if (paginationInfoTop) {
+    paginationInfoTop.textContent = paginationText;
+  }
+  if (prevBtnTop) {
+    prevBtnTop.disabled = !pagination.hasPrev;
+    prevBtnTop.onclick = handlePrev;
+  }
+  if (nextBtnTop) {
+    nextBtnTop.disabled = !pagination.hasNext;
+    nextBtnTop.onclick = handleNext;
   }
 }
 
@@ -1630,6 +1681,9 @@ if (settingsUploadBox && settingsResumeFile) {
           settingsUploadStatus.textContent = 'Resume uploaded successfully!';
           settingsUploadStatus.className = 'upload-status success';
         }
+        
+        // Show success toast notification
+        showSettingsSuccess('Resume uploaded successfully!');
         
         // Clear file input
         settingsResumeFile.value = '';
