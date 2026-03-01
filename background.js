@@ -4,9 +4,43 @@ chrome.runtime.onInstalled.addListener(() => {
   // Create context menu item
   chrome.contextMenus.create({
     id: "tailor-resume",
-    title: "Tailor resume to this role",
+    title: "On Page CV Tailor to this role",
     contexts: ["selection"]
   });
+});
+
+// Inject content script on web pages (for inline bubble feature)
+// Only injects on regular web pages, not chrome:// or extension pages
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  // Only inject when page is fully loaded and it's a web page
+  if (changeInfo.status !== 'complete') return;
+  
+  const url = tab.url || '';
+  // Skip chrome://, chrome-extension://, edge://, about:, etc.
+  if (url.startsWith('chrome://') || 
+      url.startsWith('chrome-extension://') || 
+      url.startsWith('edge://') ||
+      url.startsWith('about:') ||
+      url.startsWith('moz-extension://')) {
+    return;
+  }
+  
+  // Only inject on http/https pages
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return;
+  }
+
+  try {
+    // Inject content script for inline bubble feature
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      files: ['content.js']
+    });
+  } catch (error) {
+    // Silently fail - some pages may not allow injection
+    // This is expected for some restricted pages
+
+  }
 });
 
 // Handle context menu clicks
@@ -14,29 +48,38 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "tailor-resume") {
     const selectedText = info.selectionText;
     
-    // Store selected text
-    await chrome.storage.local.set({ selectedJobDescription: selectedText });
+    // Store selected text with a timestamp to force navigation
+    // This ensures the popup always navigates to tailor section, even if same text
+    await chrome.storage.local.set({ 
+      selectedJobDescription: selectedText,
+      lastContextMenuClick: Date.now() // Timestamp to force navigation
+    });
     
     // Check if we can inject into this tab
     if (!tab.id) {
-      console.warn('No tab ID available for context menu');
+
       return;
     }
 
     const url = tab.url || '';
     if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('edge://')) {
-      console.warn('Cannot inject into Chrome internal pages:', url);
+
       return;
     }
 
     try {
-      // Inject popup into current tab
+      // Ensure content script is injected first (for bubble functionality)
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+      // Then inject popup
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         files: ['popup-injector.js']
       });
     } catch (error) {
-      console.error('Failed to inject popup from context menu:', error);
+
     }
   }
 });
@@ -49,7 +92,7 @@ chrome.action.onClicked.addListener(async (tab) => {
   const tabId = tab.id;
   
   if (!tabId) {
-    console.warn('No tab ID available');
+
     return;
   }
 
@@ -62,7 +105,7 @@ chrome.action.onClicked.addListener(async (tab) => {
                                url.startsWith('moz-extension://');
 
   if (isChromeInternalPage) {
-    console.log('Chrome internal page detected, opening popup in new window:', url);
+
     // For Chrome internal pages, open popup.html in a new window
     try {
       await chrome.windows.create({
@@ -72,26 +115,30 @@ chrome.action.onClicked.addListener(async (tab) => {
         height: 620,
       });
     } catch (windowError) {
-      console.error('Failed to open popup window:', windowError);
+
     }
     return;
   }
 
   try {
-    // Inject the popup into the current tab (regular web pages)
+    // Ensure content script is injected first (for bubble functionality)
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      files: ['content.js']
+    });
+    // Then inject the popup
     await chrome.scripting.executeScript({
       target: { tabId: tabId },
       files: ['popup-injector.js']
     });
-    
-    console.log(`Popup injected into tab ${tabId}`);
+
   } catch (error) {
-    console.error('Failed to inject popup:', error);
+
     // Fallback: try to open default popup if injection fails
     try {
       await chrome.action.openPopup();
     } catch (popupError) {
-      console.error('Failed to open popup:', popupError);
+
     }
   }
 });
@@ -104,17 +151,23 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
       const url = sender.tab.url || '';
       if (!url.startsWith('chrome://') && !url.startsWith('chrome-extension://') && !url.startsWith('edge://')) {
         try {
+          // Ensure content script is injected first
+          await chrome.scripting.executeScript({
+            target: { tabId: sender.tab.id },
+            files: ['content.js']
+          });
+          // Then inject popup
           await chrome.scripting.executeScript({
             target: { tabId: sender.tab.id },
             files: ['popup-injector.js']
           });
           sendResponse({ success: true });
         } catch (error) {
-          console.error('Failed to inject popup:', error);
+
           sendResponse({ success: false, error: error.message });
         }
       } else {
-        console.warn('Cannot inject into Chrome internal pages:', url);
+
         sendResponse({ success: false, error: 'Cannot inject into Chrome internal pages' });
       }
     } else {
@@ -127,7 +180,7 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
         await chrome.tabs.sendMessage(sender.tab.id, { action: "closePopup" });
     sendResponse({ success: true });
       } catch (error) {
-        console.error('Failed to send close message:', error);
+
         sendResponse({ success: false, error: error.message });
       }
     } else {

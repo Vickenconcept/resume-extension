@@ -1,3 +1,6 @@
+(function(){
+  if (window.__onpageCvContentLoaded) { return; }
+  window.__onpageCvContentLoaded = true;
 // Content script for Resume Tailor extension
 
 // Listen for messages from background script
@@ -76,16 +79,22 @@ function createTailorBubble() {
     }
 
       // Store selected text so popup can pick it up
-      await chrome.storage.local.set({ selectedJobDescription: text });
+      await chrome.storage.local.set({ 
+        selectedJobDescription: text,
+        lastContextMenuClick: Date.now() // Mark as context menu click
+      });
 
       // Ask background to inject/open the popup
       chrome.runtime.sendMessage({ action: 'openPopup' }, () => {
         // Ignore errors; background will log if needed
       });
+      
+      // Hide bubble immediately after clicking
+      hideTailorBubble();
     } catch (err) {
       // Fail silently for the user, but log for debugging
       // eslint-disable-next-line no-console
-      console.error('Error triggering Resume Tailor popup from inline button:', err);
+
     } finally {
       hideTailorBubble();
     }
@@ -106,9 +115,12 @@ function hideTailorBubble() {
 function updateTailorBubblePosition() {
   // Do not show bubble if our popup overlay is currently visible
   const popupContainer = document.getElementById('resume-tailor-popup-container');
-  if (popupContainer && popupContainer.style.display !== 'none') {
-    hideTailorBubble();
+  if (popupContainer) {
+    const computedStyle = window.getComputedStyle(popupContainer);
+    if (computedStyle.display !== 'none' && computedStyle.display !== '') {
+      hideTailorBubble();
     return;
+  }
   }
 
   const now = Date.now();
@@ -141,7 +153,7 @@ function updateTailorBubblePosition() {
   }
 
   lastSelectedText = selectedText;
-   lastValidSelectionTime = now;
+  lastValidSelectionTime = now;
 
   const bubble = createTailorBubble();
   const padding = 8;
@@ -155,15 +167,47 @@ function updateTailorBubblePosition() {
   const bubbleWidth = bubble.offsetWidth || 140;
   const bubbleHeight = bubble.offsetHeight || 32;
 
-  const top = window.scrollY + rect.bottom + padding;
-  const rawLeft = window.scrollX + rect.right - bubbleWidth / 2;
+  // Position at the end of the selection (right edge, bottom)
+  // Get the end position of the selection more accurately
+  let endX, endY;
+  
+  try {
+    // Create a temporary range collapsed to the end of the selection
+    const endRange = document.createRange();
+    endRange.setStart(range.endContainer, range.endOffset);
+    endRange.collapse(true); // Collapse to start (which is the end of original range)
+    
+    // Get bounding rect of the end position
+    const endRect = endRange.getBoundingClientRect();
+    
+    // Use the end position if available
+    if (endRect && endRect.width > 0 && endRect.height > 0) {
+      endX = endRect.right;
+      endY = endRect.bottom;
+    } else {
+      // Fallback: use the right edge of the selection rect
+      endX = rect.right;
+      endY = rect.bottom;
+  }
+  } catch (e) {
+    // Fallback: use the right edge of the selection rect
+    endX = rect.right;
+    endY = rect.bottom;
+  }
+
+  // Position bubble at the end of the selection
+  // Place it below and centered on the end of the selection
+  const top = window.scrollY + endY + padding;
+  // Center bubble on the end X position, but prefer right alignment
+  const rawLeft = window.scrollX + endX - bubbleWidth / 2;
+  
+  // Clamp to viewport bounds
   const clampedLeft = Math.min(
     Math.max(8, rawLeft),
     window.innerWidth + window.scrollX - bubbleWidth - 8
   );
 
-  const maxTop =
-    window.scrollY + window.innerHeight - bubbleHeight - 8;
+  const maxTop = window.scrollY + window.innerHeight - bubbleHeight - 8;
   const clampedTop = Math.min(Math.max(window.scrollY + 8, top), maxTop);
 
   bubble.style.top = `${clampedTop}px`;
@@ -179,9 +223,51 @@ function handleSelectionChange() {
       updateTailorBubblePosition();
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.error('Error updating Resume Tailor inline button position:', e);
+
     }
   }, 80);
+}
+
+// Hide bubble when context menu is used (right-click)
+document.addEventListener('contextmenu', () => {
+  // Hide bubble when user right-clicks (they're using context menu instead)
+  hideTailorBubble();
+}, true);
+
+// Monitor for popup visibility changes
+function checkPopupVisibility() {
+  const popupContainer = document.getElementById('resume-tailor-popup-container');
+  if (popupContainer) {
+    const computedStyle = window.getComputedStyle(popupContainer);
+    if (computedStyle.display !== 'none' && computedStyle.display !== '') {
+      hideTailorBubble();
+    }
+  }
+}
+
+// Check popup visibility periodically and on mutations
+const popupObserver = new MutationObserver(() => {
+  checkPopupVisibility();
+});
+
+// Start observing when DOM is ready
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  // Observe body for popup container changes
+  popupObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class']
+  });
+} else {
+  window.addEventListener('DOMContentLoaded', () => {
+    popupObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class']
+    });
+  });
 }
 
 // Attach listeners once the DOM is ready
@@ -192,9 +278,12 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
   document.addEventListener('selectionchange', handleSelectionChange);
 } else {
   window.addEventListener('DOMContentLoaded', () => {
-document.addEventListener('mouseup', handleSelectionChange);
+    document.addEventListener('mouseup', handleSelectionChange);
     document.addEventListener('keyup', handleSelectionChange);
     document.addEventListener('scroll', handleSelectionChange, true);
     document.addEventListener('selectionchange', handleSelectionChange);
   });
 }
+
+})();
+

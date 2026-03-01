@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=400, initial-scale=1.0">
-  <title>Resume Tailor</title>
+  <title>OnPage CV</title>
   <link rel="stylesheet" href="popup.css">
   <link rel="stylesheet" href="quality-styles.css">
   <script src="config.js"></script>
@@ -26,7 +26,7 @@
     <div class="container">
     <header class="header">
       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <h1 style="margin: 0;">Resume Tailor</h1>
+        <h1 style="margin: 0;">OnPage CV</h1>
         <div id="header-menu" style="display: none; position: relative;">
           <button id="menu-toggle-btn" style="background: none; border: none; cursor: pointer; padding: 5px; display: flex; align-items: center; gap: 5px; color: #6b7280; font-size: 14px;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -64,74 +64,105 @@
       <div id="user-info" style="display: none; font-size: 12px; color: #6b7280; margin-top: 5px;">
         <span id="user-name"></span> | <a href="#" id="logout-link" style="color: #3b82f6; cursor: pointer;">Logout</a>
       </div>
+      <div id="credits-info" style="display: none; font-size: 12px; color: #6b7280; margin-top: 5px; align-items: center; gap: 8px;">
+        <span id="credits-balance" style="font-weight: 600; color: #3b82f6;">0 Credits</span>
+        <span id="free-trial-info" style="color: #10b981;"></span>
+        <a href="#" id="buy-credits-link" style="color: #3b82f6; cursor: pointer; text-decoration: underline;">Buy Credits</a>
+      </div>
     </header>
 
     <!-- Auth Section -->
-    <div id="auth-section" class="section hidden">
-      <h2>Welcome to Resume Tailor</h2>
-      <p class="subtitle">Sign in to continue or create an account</p>
-      
-      <div id="login-form">
-        <h3 style="font-size: 16px; margin-bottom: 15px;">Login</h3>
-        <input type="email" id="login-email" placeholder="Email" class="input">
-        <div class="password-input-wrapper">
-          <input type="password" id="login-password" placeholder="Password" class="input">
-          <button type="button" class="password-toggle" data-target="login-password" aria-label="Toggle password visibility">
-            <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-              <line x1="1" y1="1" x2="23" y2="23"></line>
-            </svg>
-          </button>
+    <div id="auth-section" class="section hidden auth-section">
+      <div class="auth-hero">
+        <div class="auth-logo">
+          <img src="icons/resume-tailor-logo.png" alt="OnPage CV logo">
         </div>
-        <button id="login-btn" class="btn btn-primary">Sign In</button>
-        
-        <p style="text-align: center; margin-top: 15px; font-size: 14px;">
-          Don't have an account? <a href="#" id="show-register" style="color: #3b82f6; cursor: pointer;">Sign Up</a>
-        </p>
+        <div class="auth-brand">
+          <h2 class="auth-brand-title" id="auth-heading">Sign in</h2>
+          <p class="auth-brand-subtitle" id="auth-subheading">Continue to your account</p>
+        </div>
       </div>
-      
-      <div id="register-form" style="display: none;">
-        <h3 style="font-size: 16px; margin-bottom: 15px;">Create Account</h3>
-        <input type="text" id="register-name" placeholder="Name" class="input">
-        <input type="email" id="register-email" placeholder="Email" class="input">
-        <div class="password-input-wrapper">
-          <input type="password" id="register-password" placeholder="Password (min 8 characters)" class="input">
-          <button type="button" class="password-toggle" data-target="register-password" aria-label="Toggle password visibility">
-            <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-              <line x1="1" y1="1" x2="23" y2="23"></line>
-            </svg>
-          </button>
+
+      <div class="auth-card">
+        <div id="login-form" class="auth-form">
+          <label for="login-email" class="auth-label">Email address</label>
+          <input type="email" id="login-email" placeholder="you@email.com" class="input">
+          <label for="login-password" class="auth-label">Password</label>
+          <div class="password-input-wrapper">
+            <input type="password" id="login-password" placeholder="••••••••" class="input">
+            <button type="button" class="password-toggle" data-target="login-password" aria-label="Toggle password visibility">
+              <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+          <button id="login-btn" class="btn btn-primary">Sign In</button>
+
+          <p class="auth-footer" style="margin-top: 8px;">
+            <a href="#" id="forgot-password-link">Forgot password?</a>
+          </p>
+          <p class="auth-footer">
+            Don't have an account? <a href="#" id="show-register">Sign Up</a>
+          </p>
         </div>
-        <div class="password-input-wrapper">
-          <input type="password" id="register-password-confirm" placeholder="Confirm Password" class="input">
-          <button type="button" class="password-toggle" data-target="register-password-confirm" aria-label="Toggle password visibility">
-            <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-              <line x1="1" y1="1" x2="23" y2="23"></line>
-            </svg>
-          </button>
+
+        <div id="register-form" class="auth-form register-form" style="display: none;">
+          <label for="register-name" class="auth-label">Full name</label>
+          <input type="text" id="register-name" placeholder="Your name" class="input">
+          <label for="register-email" class="auth-label">Email address</label>
+          <input type="email" id="register-email" placeholder="you@email.com" class="input">
+          <label for="register-password" class="auth-label">Password</label>
+          <div class="password-input-wrapper">
+            <input type="password" id="register-password" placeholder="Minimum 8 characters" class="input">
+            <button type="button" class="password-toggle" data-target="register-password" aria-label="Toggle password visibility">
+              <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+          <label for="register-password-confirm" class="auth-label">Confirm password</label>
+          <div class="password-input-wrapper">
+            <input type="password" id="register-password-confirm" placeholder="Re-enter password" class="input">
+            <button type="button" class="password-toggle" data-target="register-password-confirm" aria-label="Toggle password visibility">
+              <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+          <button id="register-btn" class="btn btn-primary">Create Account</button>
+
+          <p class="auth-footer">
+            Already have an account? <a href="#" id="show-login">Sign In</a>
+          </p>
         </div>
-        <button id="register-btn" class="btn btn-primary">Create Account</button>
-        
-        <p style="text-align: center; margin-top: 15px; font-size: 14px;">
-          Already have an account? <a href="#" id="show-login" style="color: #3b82f6; cursor: pointer;">Sign In</a>
-        </p>
+
+        <div id="reset-password-section" class="auth-form" style="display: none;">
+          <label for="reset-email" class="auth-label">Email address</label>
+          <input type="email" id="reset-email" placeholder="you@email.com" class="input">
+          <button id="reset-submit-btn" class="btn btn-primary">Send reset link</button>
+          <p id="reset-status" style="display: none; font-size: 13px; margin-top: 10px; text-align: center;"></p>
+          <p class="auth-footer">
+            <a href="#" id="reset-back-btn">Back to sign in</a>
+          </p>
+        </div>
+
+        <div id="auth-error" style="display: none; color: #ef4444; font-size: 14px; margin-top: 12px; text-align: center;"></div>
       </div>
-      
-      <div id="auth-error" style="display: none; color: #ef4444; font-size: 14px; margin-top: 10px; text-align: center;"></div>
     </div>
 
     <!-- Upload Section -->
@@ -168,7 +199,7 @@
             <line x1="16" y1="17" x2="8" y2="17"></line>
           </svg>
         </div>
-        <h2 class="home-title">Welcome to Resume Tailor</h2>
+        <h2 class="home-title">Welcome to OnPage CV</h2>
         <p class="home-subtitle">AI-powered resume customization for every job application</p>
       </div>
 
@@ -266,18 +297,18 @@
 
       <div class="toggle-row" style="display: flex; gap: 8px; margin-top: 8px; align-items: center; flex-wrap: nowrap;">
         <div class="toggle-card" style="flex: 1; padding: 6px 8px; min-width: 0;">
-          <div class="toggle-content">
+        <div class="toggle-content">
             <div class="toggle-header" style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
               <div style="display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1;">
                 <strong style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">100% Match</strong>
-                <span title="Let AI add missing skills and keywords from the job description to aim for 100% match." style="font-size: 10px; color: #6b7280; cursor: help; flex-shrink: 0;">&#9432;</span>
+                <span title="Let AI add additional skills and keywords from the job description to aim for 100% match." style="font-size: 10px; color: #6b7280; cursor: help; flex-shrink: 0;">&#9432;</span>
               </div>
               <label class="toggle-switch" style="flex-shrink: 0;">
-                <input type="checkbox" id="generate-freely-toggle">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
+              <input type="checkbox" id="generate-freely-toggle">
+              <span class="toggle-slider"></span>
+            </label>
           </div>
+        </div>
         </div>
 
         <div class="toggle-card" style="flex: 1; padding: 6px 8px; min-width: 0;">
@@ -311,9 +342,6 @@
       </div>
 
       <button id="tailor-btn" class="btn btn-primary tailor-generate-btn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-        </svg>
         <span>Generate Tailored Content</span>
       </button>
     </div>
@@ -361,7 +389,8 @@
           <div class="regenerate-content">
             <div class="regenerate-text">
               <strong>Enhance Your Resume</strong>
-              <p>Your resume can be improved to better match the job requirements. Click to regenerate with missing keywords and optimizations added.</p>
+              <p>Click to regenerate with additional keywords and optimizations.</p>
+              <!-- <p>Your resume can be improved to better match the job requirements. Click to regenerate with missing keywords and optimizations added.</p> -->
             </div>
             <button id="regenerate-btn" class="btn-regenerate">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -387,26 +416,24 @@
             <div id="matched-keywords" class="keywords-tags"></div>
           </div>
           <div class="keywords-missing">
-            <span class="keyword-label">Missing:</span>
+            <span class="keyword-label">Additional:</span>
             <div id="missing-keywords" class="keywords-tags"></div>
           </div>
         </div>
       </div>
 
-      <!-- Quality Warnings -->
-      <div id="quality-warnings" class="quality-warnings hidden"></div>
-
       <!-- Full Document Preview -->
       <div class="result-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <h3 style="margin: 0;">Tailored Resume</h3>
-          <button id="expand-resume-btn" class="expand-btn" data-target="resume" data-tooltip="Expand Editor">
+          <button id="expand-resume-btn" class="expand-btn" data-target="resume" data-tooltip="Edit Resume">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
           </button>
         </div>
-        <textarea id="full-document-content" class="content-box editable-content" style="white-space: pre-wrap; font-family: monospace; font-size: 11px; width: 100%; min-height: 200px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; resize: vertical;"></textarea>
+        <textarea id="full-document-content" class="content-box editable-content" readonly style="white-space: pre-wrap; font-family: monospace; font-size: 11px; width: 100%; min-height: 200px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; resize: vertical; background-color: #f9fafb; cursor: default; overflow-y: auto;"></textarea>
         <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
           <button class="btn-copy icon-btn" data-target="full-document" data-tooltip="Copy Resume">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -439,29 +466,17 @@
               </button>
             </div>
           </div>
-          <div class="template-menu-dropdown" style="position: relative;">
-            <button class="btn-more icon-btn" data-tooltip="More Options">
+          <div class="feedback-buttons" style="display: flex; gap: 5px; margin-left: auto;">
+            <button class="feedback-btn feedback-thumbs-up" data-type="resume" data-rating="positive" data-tooltip="Thumbs up">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="1"></circle>
-                <circle cx="12" cy="5" r="1"></circle>
-                <circle cx="12" cy="19" r="1"></circle>
+                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
               </svg>
             </button>
-            <div class="template-menu hidden" style="position: absolute; top: 100%; left: 0; margin-top: 8px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); min-width: 180px; z-index: 10000;">
-              <div style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; font-weight: 600; color: #6b7280;">Template</div>
-              <button class="template-option-menu" data-template="classic" style="width: 100%; padding: 10px 12px; text-align: left; border: none; background: none; cursor: pointer; font-size: 13px; color: #111827; transition: background 0.2s; display: flex; align-items: center; justify-content: space-between;">
-                <span>Classic</span>
-                <span style="font-size: 11px; color: #6b7280;">ATS-safe</span>
+            <button class="feedback-btn feedback-thumbs-down" data-type="resume" data-rating="negative" data-tooltip="Thumbs down">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+              </svg>
               </button>
-              <button class="template-option-menu" data-template="modern" style="width: 100%; padding: 10px 12px; text-align: left; border: none; background: none; cursor: pointer; font-size: 13px; color: #111827; transition: background 0.2s; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6;">
-                <span>Modern</span>
-                <span style="font-size: 11px; color: #6b7280;">Contemporary</span>
-              </button>
-              <button class="template-option-menu" data-template="compact" style="width: 100%; padding: 10px 12px; text-align: left; border: none; background: none; cursor: pointer; font-size: 13px; color: #111827; transition: background 0.2s; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6;">
-                <span>Compact</span>
-                <span style="font-size: 11px; color: #6b7280;">One-page</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -470,13 +485,14 @@
       <div class="result-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <h3 style="margin: 0;">Cover Letter</h3>
-          <button id="expand-cover-letter-btn" class="expand-btn" data-target="cover-letter" data-tooltip="Expand Editor">
+          <button id="expand-cover-letter-btn" class="expand-btn" data-target="cover-letter" data-tooltip="Edit Cover Letter">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
           </button>
         </div>
-        <textarea id="cover-letter-content" class="content-box editable-content" style="white-space: pre-wrap; font-family: monospace; font-size: 11px; width: 100%; min-height: 150px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; resize: vertical;"></textarea>
+        <textarea id="cover-letter-content" class="content-box editable-content" readonly style="white-space: pre-wrap; font-family: monospace; font-size: 11px; width: 100%; min-height: 150px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; resize: vertical; background-color: #f9fafb; cursor: default; overflow-y: auto;"></textarea>
         <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center;">
           <button class="btn-copy icon-btn" data-target="cover-letter" data-tooltip="Copy Cover Letter">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -484,6 +500,18 @@
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
             </svg>
           </button>
+          <div class="feedback-buttons" style="display: flex; gap: 5px; margin-left: auto;">
+            <button class="feedback-btn feedback-thumbs-up" data-type="cover_letter" data-rating="positive" data-tooltip="Thumbs up">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+              </svg>
+            </button>
+            <button class="feedback-btn feedback-thumbs-down" data-type="cover_letter" data-rating="negative" data-tooltip="Thumbs down">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+            </svg>
+          </button>
+          </div>
         </div>
       </div>
 
@@ -512,49 +540,32 @@
         <button id="settings-back-btn" class="btn btn-secondary" style="width: auto; padding: 8px 16px;">Back</button>
       </div>
 
-      <!-- Upload New Resume -->
-      <div class="settings-upload-area" style="margin-bottom: 25px; padding: 20px; background: #f9fafb; border-radius: 12px; border: 2px dashed #d1d5db;">
-        <h3 style="font-size: 16px; margin-bottom: 15px; color: #111827;">Upload New Resume</h3>
-        <div id="settings-upload-box" class="upload-box" style="margin: 0; padding: 20px; background: #ffffff; border: 1px solid #e5e7eb;">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #6b7280; margin-bottom: 10px;">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-          </svg>
-          <p style="font-size: 14px; color: #374151; margin: 5px 0;">Click to upload</p>
-          <p class="file-info" style="font-size: 12px; color: #6b7280;">PDF or DOCX (max 5MB)</p>
-          <input type="file" id="settings-resume-file" accept=".pdf,.doc,.docx" style="display: none;">
+      <!-- Upload Button -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding: 12px 14px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px;">
+        <div>
+          <div style="font-size: 14px; font-weight: 600; color: #111827;">Upload a new resume</div>
+          <div style="font-size: 12px; color: #6b7280;">PDF or DOCX, up to 5MB</div>
         </div>
-        <div id="settings-upload-status" class="upload-status hidden" style="margin-top: 10px;"></div>
-      </div>
-
-      <!-- Template Selection -->
-      <div class="template-selection" style="margin-bottom: 25px; padding: 20px; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb;">
-        <h3 style="font-size: 16px; margin-bottom: 15px; color: #111827;">Resume Template</h3>
-        <p style="font-size: 13px; color: #6b7280; margin-bottom: 15px;">Choose your default template style. This will be used for all resume downloads and previews.</p>
-        <div class="template-options" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
-          <button class="template-option" data-template="classic" style="padding: 16px; border: 2px solid #e5e7eb; border-radius: 8px; background: #ffffff; cursor: pointer; text-align: center; transition: all 0.2s;">
-            <div style="font-weight: 600; margin-bottom: 8px; color: #111827;">Classic</div>
-            <div style="font-size: 12px; color: #6b7280;">ATS-safe, traditional</div>
-          </button>
-          <button class="template-option" data-template="modern" style="padding: 16px; border: 2px solid #e5e7eb; border-radius: 8px; background: #ffffff; cursor: pointer; text-align: center; transition: all 0.2s;">
-            <div style="font-weight: 600; margin-bottom: 8px; color: #111827;">Modern</div>
-            <div style="font-size: 12px; color: #6b7280;">Clean, contemporary</div>
-          </button>
-          <button class="template-option" data-template="compact" style="padding: 16px; border: 2px solid #e5e7eb; border-radius: 8px; background: #ffffff; cursor: pointer; text-align: center; transition: all 0.2s;">
-            <div style="font-weight: 600; margin-bottom: 8px; color: #111827;">Compact</div>
-            <div style="font-size: 12px; color: #6b7280;">Dense, one-page</div>
-          </button>
-        </div>
+        <button id="settings-upload-open" class="btn btn-primary" style="width: auto; padding: 8px 14px;">Upload</button>
       </div>
 
       <!-- Tabs -->
       <div class="settings-tabs" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
-        <button id="tab-resumes" class="settings-tab active" style="padding: 10px 16px; background: none; border: none; border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: 500; cursor: pointer; font-size: 14px;">
-          Your Resumes
+        <button id="tab-resumes" class="settings-tab active" style="padding: 10px 14px; background: none; border: none; border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: 600; cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 8px 8px 0 0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          <span>Your Resumes</span>
         </button>
-        <button id="tab-versions" class="settings-tab" style="padding: 10px 16px; background: none; border: none; border-bottom: 2px solid transparent; color: #6b7280; font-weight: 500; cursor: pointer; font-size: 14px;">
-          Resume Versions
+        <button id="tab-versions" class="settings-tab" style="padding: 10px 14px; background: none; border: none; border-bottom: 2px solid transparent; color: #6b7280; font-weight: 600; cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 8px 8px 0 0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 7v5l3 3"></path>
+          </svg>
+          <span>Resume Versions</span>
         </button>
       </div>
 
@@ -716,8 +727,37 @@
           </div>
         </div>
       </div>
+
     </div>
   </div>
+  </div>
+
+  <!-- Settings Upload Modal -->
+  <div id="settings-upload-modal" class="payment-modal hidden">
+    <div class="payment-modal-content">
+      <div class="payment-modal-header">
+        <h3>Upload Resume</h3>
+        <button id="settings-upload-close" class="payment-modal-close" aria-label="Close upload modal">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="payment-modal-body">
+        <div id="settings-upload-box" class="upload-box" style="margin: 0; padding: 20px; background: #ffffff; border: 1px solid #e5e7eb;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #6b7280; margin-bottom: 10px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p style="font-size: 14px; color: #374151; margin: 5px 0;">Click to upload</p>
+          <p class="file-info" style="font-size: 12px; color: #6b7280;">PDF or DOCX (max 5MB)</p>
+          <input type="file" id="settings-resume-file" accept=".pdf,.doc,.docx" style="display: none;">
+        </div>
+        <div id="settings-upload-status" class="upload-status hidden" style="margin-top: 10px;"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Expanded Rich Text Editor Overlay -->
@@ -847,6 +887,32 @@
     </div>
   </div>
 
+  <!-- Payment Modal -->
+  <div id="payment-modal" class="payment-modal hidden">
+    <div class="payment-modal-content">
+      <div class="payment-modal-header">
+        <h3>Buy Credits</h3>
+        <button id="payment-modal-close" class="payment-modal-close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="payment-modal-body">
+        <div id="payment-plans" class="payment-plans">
+          <!-- Payment plans will be loaded here -->
+        </div>
+        <p id="payment-ngn-note" class="payment-ngn-note">Prices in USD. You'll pay in NGN (converted at checkout) via Paystack.</p>
+        <div id="payment-loading" class="payment-loading hidden" style="text-align: center; padding: 20px;">
+          <div style="margin-bottom: 10px;">Processing payment...</div>
+          <div class="loading-spinner" style="display: inline-block;"></div>
+        </div>
+        <div id="payment-error" class="payment-error hidden" style="color: #ef4444; padding: 10px; background: #fef2f2; border-radius: 6px; margin-top: 10px;"></div>
+    </div>
+  </div>
+  </div>
+
   <!-- Loading Overlay -->
   <div id="loading" class="loading-overlay hidden">
     <div class="loading-content">
@@ -898,12 +964,59 @@
     </div>
   </div>
 
+  <!-- Feedback Modal -->
+  <div id="feedback-modal" class="payment-modal hidden">
+    <div class="payment-modal-content">
+      <div class="payment-modal-header">
+        <h3>Provide Feedback</h3>
+        <button id="feedback-modal-close" class="payment-modal-close" aria-label="Close feedback modal">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="payment-modal-body">
+        <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
+          We'd love to hear your thoughts! Please share what we can improve.
+        </p>
+        <form id="feedback-form">
+          <input type="hidden" id="feedback-type" name="type">
+          <input type="hidden" id="feedback-rating" name="rating">
+          <div style="margin-bottom: 20px;">
+            <label for="feedback-message" style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+              Your Feedback <span style="color: #ef4444;">*</span>
+            </label>
+            <textarea 
+              id="feedback-message" 
+              name="message" 
+              rows="5" 
+              required
+              placeholder="Please tell us what we can improve..."
+              style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; font-family: inherit; resize: vertical;"
+            ></textarea>
+          </div>
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" id="feedback-cancel-btn" class="btn btn-secondary" style="padding: 10px 20px;">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">
+              Submit Feedback
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
         <script src="api.js"></script>
         <script src="ui.js"></script>
         <script src="auth.js"></script>
         <script src="state-manager.js"></script>
         <script src="tailor-handler.js"></script>
         <script src="download-handler.js"></script>
+        <script src="payment-handler.js"></script>
+        <script src="feedback-handler.js"></script>
         <script src="settings-popup.js"></script>
         <script src="quality-display.js"></script>
         <script src="popup.js"></script>

@@ -5,8 +5,9 @@ let selectedResumeIds = new Set();
 let currentVersionsPage = 1;
 let versionsTotalPages = 1;
 let activeTab = 'resumes'; // 'resumes' or 'versions'
+let currentFeedbackPage = 1;
+let feedbackTotalPages = 1;
 let selectedVersionIds = new Set();
-let currentTemplate = 'classic'; // Default template
 
 // Helper function to safely handle Chrome storage operations
 async function safeChromeStorage(operation, ...args) {
@@ -51,37 +52,38 @@ if (tabResumes && tabVersions) {
 window.switchTab = function(tab) {
   activeTab = tab;
   
+  // Reset all tabs
+  [tabResumes, tabVersions].forEach(t => {
+    if (t) {
+      t.classList.remove('active');
+      t.style.borderBottomColor = 'transparent';
+      t.style.color = '#6b7280';
+    }
+  });
+  
+  [tabResumesContent, tabVersionsContent].forEach(c => {
+    if (c) c.classList.add('hidden');
+  });
+  
   if (tab === 'resumes') {
     if (tabResumes) {
       tabResumes.classList.add('active');
       tabResumes.style.borderBottomColor = '#3b82f6';
       tabResumes.style.color = '#3b82f6';
     }
-    if (tabVersions) {
-      tabVersions.classList.remove('active');
-      tabVersions.style.borderBottomColor = 'transparent';
-      tabVersions.style.color = '#6b7280';
-    }
     if (tabResumesContent) tabResumesContent.classList.remove('hidden');
-    if (tabVersionsContent) tabVersionsContent.classList.add('hidden');
     
     // Load resumes if not already loaded
     if (document.getElementById('settings-resumes-tbody')?.children.length === 0) {
       window.loadSettingsResumes();
     }
-  } else {
+  } else if (tab === 'versions') {
     if (tabVersions) {
       tabVersions.classList.add('active');
       tabVersions.style.borderBottomColor = '#3b82f6';
       tabVersions.style.color = '#3b82f6';
     }
-    if (tabResumes) {
-      tabResumes.classList.remove('active');
-      tabResumes.style.borderBottomColor = 'transparent';
-      tabResumes.style.color = '#6b7280';
-    }
     if (tabVersionsContent) tabVersionsContent.classList.remove('hidden');
-    if (tabResumesContent) tabResumesContent.classList.add('hidden');
     
     // Load versions
     window.loadSettingsVersions();
@@ -207,7 +209,7 @@ function updatePagination(pagination) {
   if (prevBtn) {
     prevBtn.disabled = !pagination.hasPrev;
     prevBtn.onclick = handlePrev;
-  }
+      }
   if (nextBtn) {
     nextBtn.disabled = !pagination.hasNext;
     nextBtn.onclick = handleNext;
@@ -223,7 +225,7 @@ function updatePagination(pagination) {
   if (prevBtnTop) {
     prevBtnTop.disabled = !pagination.hasPrev;
     prevBtnTop.onclick = handlePrev;
-  }
+      }
   if (nextBtnTop) {
     nextBtnTop.disabled = !pagination.hasNext;
     nextBtnTop.onclick = handleNext;
@@ -287,7 +289,7 @@ function createSettingsResumeRow(resume) {
     defaultTag.style.whiteSpace = 'nowrap';
     nameContainer.appendChild(defaultTag);
   }
-  
+
   // Create uploaded date tag
   const dateTag = document.createElement('span');
   dateTag.textContent = formatDate(resume.uploadedAt);
@@ -359,12 +361,12 @@ function createSettingsResumeRow(resume) {
       </button>
       ${!resume.isDefault ? `
         <button class="dropdown-item danger" data-action="delete">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            <line x1="10" y1="11" x2="10" y2="17"></line>
-            <line x1="14" y1="11" x2="14" y2="17"></line>
-          </svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>
           <span>Delete</span>
         </button>
       ` : ''}
@@ -386,7 +388,7 @@ function createSettingsResumeRow(resume) {
     } else if (action === 'edit') {
       editResumeName(resume.resumeId);
     } else if (action === 'delete') {
-      await deleteResume(resume.resumeId, resume.displayName || resume.filename);
+        await deleteResume(resume.resumeId, resume.displayName || resume.filename);
     }
   });
 
@@ -427,7 +429,7 @@ function createSettingsResumeRow(resume) {
       actionsCell.classList.remove('dropdown-open');
       const parentRow = actionsCell.closest('tr');
       if (parentRow) parentRow.classList.remove('dropdown-open');
-    }
+  }
   });
 
   actionsCell.appendChild(menuBtn);
@@ -693,7 +695,7 @@ function updateVersionsPagination(pagination) {
   if (prevBtn) {
     prevBtn.disabled = !pagination.hasPrev;
     prevBtn.onclick = handlePrev;
-  }
+      }
   if (nextBtn) {
     nextBtn.disabled = !pagination.hasNext;
     nextBtn.onclick = handleNext;
@@ -709,7 +711,7 @@ function updateVersionsPagination(pagination) {
   if (prevBtnTop) {
     prevBtnTop.disabled = !pagination.hasPrev;
     prevBtnTop.onclick = handlePrev;
-  }
+      }
   if (nextBtnTop) {
     nextBtnTop.disabled = !pagination.hasNext;
     nextBtnTop.onclick = handleNext;
@@ -783,8 +785,7 @@ function createSettingsVersionRow(version) {
   actionsCell.className = 'resume-actions-cell';
   actionsCell.style.position = 'relative';
 
-  // Preview button (eye icon) - always visible if document exists
-  if (version.hasDocx || version.hasPdf) {
+  if (version.cloudinaryUrl) {
     const previewBtn = document.createElement('button');
     previewBtn.className = 'icon-btn';
     previewBtn.setAttribute('data-tooltip', 'Preview');
@@ -795,7 +796,12 @@ function createSettingsVersionRow(version) {
       </svg>
     `;
     previewBtn.addEventListener('click', async () => {
-      await previewVersion(version);
+      await previewResume({
+        cloudinaryUrl: version.cloudinaryUrl,
+        displayName: version.versionName,
+        filename: version.resumeFilename,
+        resumeId: version.resumeId,
+      });
     });
     actionsCell.appendChild(previewBtn);
   }
@@ -825,23 +831,13 @@ function createSettingsVersionRow(version) {
           <span>Promote to Main</span>
         </button>
       ` : ''}
-      ${version.hasDocx || version.hasPdf ? `
-        <button class="dropdown-item" data-action="download">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          <span>Download</span>
-        </button>
-      ` : ''}
       <button class="dropdown-item danger" data-action="delete">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-          <line x1="10" y1="11" x2="10" y2="17"></line>
-          <line x1="14" y1="11" x2="14" y2="17"></line>
-        </svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      <line x1="10" y1="11" x2="10" y2="17"></line>
+      <line x1="14" y1="11" x2="14" y2="17"></line>
+    </svg>
         <span>Delete</span>
       </button>
     </div>
@@ -859,8 +855,6 @@ function createSettingsVersionRow(version) {
     
     if (action === 'promote') {
       await promoteVersionToMain(version.versionId, version.versionName);
-    } else if (action === 'download') {
-      await downloadVersion(version);
     } else if (action === 'delete') {
       await deleteVersion(version.versionId, version.versionName);
     }
@@ -942,82 +936,6 @@ async function promoteVersionToMain(versionId, versionName) {
   }
 }
 
-async function previewVersion(version) {
-  try {
-    // Use download URLs from version data
-    const downloadUrls = version.downloadUrls || {};
-    const docxUrl = downloadUrls.docx;
-    const pdfUrl = downloadUrls.pdf;
-
-    // Prefer PDF for preview, fallback to DOCX
-    let url = pdfUrl || docxUrl;
-    if (!url) {
-      showSettingsError('Preview URL not available for this version');
-      return;
-    }
-
-    // For DOCX files, use Google Docs viewer or convert to PDF viewer
-    if (url.includes('.docx') || url.endsWith('.docx')) {
-      // Use Google Docs viewer for DOCX files
-      url = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-    } else if (url.includes('.pdf') || url.endsWith('.pdf')) {
-      // For PDF, use the direct URL (browsers can display PDFs natively)
-      // Or use Google Docs viewer for better compatibility
-      url = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-    }
-
-    // Show preview overlay
-    const overlay = document.getElementById('document-preview-overlay');
-    const iframe = document.getElementById('document-preview-iframe');
-    const title = document.getElementById('document-preview-title');
-    const closeBtn = document.getElementById('document-preview-close');
-
-    if (overlay && iframe && title) {
-      // Set title
-      const versionName = version.versionName || 'Resume Version';
-      const resumeName = version.resumeName || 'Resume';
-      title.textContent = `${resumeName} - ${versionName}`;
-
-      // Set iframe source
-      iframe.src = url;
-
-      // Show overlay
-      overlay.classList.remove('hidden');
-
-      // Close button handler
-      if (closeBtn) {
-        const closeHandler = () => {
-          overlay.classList.add('hidden');
-          iframe.src = ''; // Clear iframe to stop loading
-          closeBtn.removeEventListener('click', closeHandler);
-        };
-        closeBtn.addEventListener('click', closeHandler);
-
-        // Also close on overlay background click
-        overlay.addEventListener('click', (e) => {
-          if (e.target === overlay) {
-            closeHandler();
-          }
-        });
-
-        // Close on ESC key
-        const escHandler = (e) => {
-          if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
-            closeHandler();
-            document.removeEventListener('keydown', escHandler);
-          }
-        };
-        document.addEventListener('keydown', escHandler);
-      }
-    } else {
-      // Fallback: open in new tab if overlay elements not found
-      window.open(url, '_blank');
-    }
-  } catch (error) {
-    console.error('Preview version error:', error);
-    showSettingsError('Failed to preview version: ' + error.message);
-  }
-}
 
 async function previewResume(resume) {
   try {
@@ -1037,7 +955,6 @@ async function previewResume(resume) {
       return;
     }
 
-    console.log('Previewing resume:', { url, resumeId: resume.resumeId, filename: resume.filename });
 
     // Determine file type and choose preview method
     let previewUrl = url;
@@ -1056,13 +973,13 @@ async function previewResume(resume) {
       previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
     }
 
-    console.log('Preview URL:', previewUrl, 'isPdf:', isPdf, 'isDocx:', isDocx);
 
     // Show preview overlay
     const overlay = document.getElementById('document-preview-overlay');
     const iframe = document.getElementById('document-preview-iframe');
     const title = document.getElementById('document-preview-title');
     const closeBtn = document.getElementById('document-preview-close');
+    const previewContent = document.querySelector('.document-preview-content');
 
     if (!overlay || !iframe || !title) {
       console.error('Preview overlay elements not found');
@@ -1075,6 +992,33 @@ async function previewResume(resume) {
     const resumeName = resume.displayName || resume.filename || 'Resume';
     title.textContent = resumeName;
 
+    if (previewContent) {
+      const existingLoader = previewContent.querySelector('.document-preview-loading');
+      if (existingLoader) {
+        existingLoader.remove();
+      }
+      const loader = document.createElement('div');
+      loader.className = 'document-preview-loading';
+      loader.innerHTML = `
+        <div class="document-preview-loading-spinner"></div>
+        <div class="document-preview-loading-text">
+          Loading preview...
+          <button type="button" class="document-preview-open" data-url="${url}">Open in new tab</button>
+        </div>
+      `;
+      previewContent.appendChild(loader);
+
+      const openBtn = loader.querySelector('.document-preview-open');
+      if (openBtn) {
+        openBtn.addEventListener('click', () => {
+          const targetUrl = openBtn.getAttribute('data-url');
+          if (targetUrl) {
+            window.open(targetUrl, '_blank');
+          }
+        });
+      }
+    }
+
     // Use Google Docs viewer (same as Resume Versions)
     if (url.includes('.docx') || url.endsWith('.docx')) {
       previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
@@ -1083,6 +1027,22 @@ async function previewResume(resume) {
     }
 
     // Set iframe source (same order as previewVersion)
+    iframe.onload = () => {
+      const loader = previewContent?.querySelector('.document-preview-loading');
+      if (loader) loader.remove();
+    };
+    iframe.onerror = () => {
+      const loader = previewContent?.querySelector('.document-preview-loading');
+      if (loader) {
+        loader.classList.add('slow');
+      }
+    };
+    const slowTimer = setTimeout(() => {
+      const loader = previewContent?.querySelector('.document-preview-loading');
+      if (loader) loader.classList.add('slow');
+    }, 4000);
+    iframe.addEventListener('load', () => clearTimeout(slowTimer), { once: true });
+    iframe.src = 'about:blank';
     iframe.src = previewUrl;
 
     // Show overlay (same as previewVersion)
@@ -1119,25 +1079,6 @@ async function previewResume(resume) {
   }
 }
 
-async function downloadVersion(version) {
-  try {
-    // Use download URLs from version data
-    const downloadUrls = version.downloadUrls || {};
-    const docxUrl = downloadUrls.docx;
-    const pdfUrl = downloadUrls.pdf;
-
-    // Prefer PDF, fallback to DOCX
-    const url = pdfUrl || docxUrl;
-    if (url) {
-      window.open(url, '_blank');
-    } else {
-      showSettingsError('Download URL not available for this version');
-    }
-  } catch (error) {
-    console.error('Download version error:', error);
-    showSettingsError('Failed to download version: ' + error.message);
-  }
-}
 
 async function deleteVersion(versionId, versionName) {
   const displayName = versionName || `Version ${versionId}`;
@@ -1475,122 +1416,34 @@ function isButtonLoading(button) {
   return loadingButtons.has(button);
 } // Default to classic
 
-async function loadTemplatePreference() {
-  try {
-    console.log('Loading template preference...');
-    const response = await window.apiRequest('/default-template', {
-      method: 'GET',
-    });
-    console.log('Template preference response:', response);
-
-    if (response.success && response.data) {
-      currentTemplate = response.data.template || 'classic';
-      console.log('Set currentTemplate to:', currentTemplate);
-      updateTemplateSelection();
-    } else {
-      // If API call succeeds but no data, default to classic
-      console.log('No data in response, defaulting to classic');
-      currentTemplate = 'classic';
-      updateTemplateSelection();
-    }
-  } catch (error) {
-    console.error('Load template preference error:', error);
-    // Default to classic if load fails
-    console.log('API call failed, defaulting to classic');
-    currentTemplate = 'classic';
-    updateTemplateSelection();
-  }
-}
-
-function updateTemplateSelection() {
-  const templateOptions = document.querySelectorAll('.template-option');
-  console.log('Updating template selection:', currentTemplate, 'Found options:', templateOptions.length);
-  if (templateOptions.length === 0) {
-    console.warn('No template options found in DOM');
-    return;
-  }
-  templateOptions.forEach(option => {
-    const template = option.getAttribute('data-template');
-    console.log('Checking option:', template, 'Current:', currentTemplate);
-    if (template === currentTemplate) {
-      option.style.borderColor = '#3b82f6';
-      option.style.background = '#eff6ff';
-      option.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-      console.log('Selected option:', template);
-    } else {
-      option.style.borderColor = '#e5e7eb';
-      option.style.background = '#ffffff';
-      option.style.boxShadow = 'none';
-    }
-  });
-}
-
-async function setTemplatePreference(template) {
-  console.log('Setting template preference to:', template);
-  try {
-    const response = await window.apiRequest('/default-template', {
-      method: 'POST',
-      body: JSON.stringify({ template }),
-    });
-
-    if (response.success) {
-      console.log('API success, updating currentTemplate to:', template);
-      currentTemplate = template;
-      updateTemplateSelection();
-      showSettingsSuccess('Template preference updated successfully');
-    } else {
-      console.error('API error:', response.error);
-      showSettingsError(response.error || 'Failed to update template preference');
-    }
-  } catch (error) {
-    console.error('Set template preference error:', error);
-    showSettingsError('Failed to update template preference: ' + error.message);
-  }
-}
-
-// Template option click handlers
-document.addEventListener('DOMContentLoaded', async () => {
-  // Initialize with default template selection
-  updateTemplateSelection();
-
-  // Load template preference on page load
-  await loadTemplatePreference();
-
-  // Ensure at least classic is selected as fallback
-  if (!currentTemplate) {
-    currentTemplate = 'classic';
-    updateTemplateSelection();
-  }
-});
-
-// Use event delegation for template clicks
-document.addEventListener('click', (e) => {
-  const target = e.target;
-  if (target.classList.contains('template-option') || target.closest('.template-option')) {
-    const option = target.classList.contains('template-option') ? target : target.closest('.template-option');
-    const template = option.getAttribute('data-template');
-    console.log('Template clicked via delegation:', template);
-    if (template) {
-      setTemplatePreference(template);
-    }
-  }
-});
-
-// Update template selection when settings section is shown
-if (typeof window.showSettingsSection === 'function') {
-  const originalShowSettings = window.showSettingsSection;
-  window.showSettingsSection = function() {
-    originalShowSettings();
-    
-    // Update template selection when settings section is shown
-    updateTemplateSelection();
-  };
-}
 
 // Settings upload handler
 const settingsUploadBox = document.getElementById('settings-upload-box');
 const settingsResumeFile = document.getElementById('settings-resume-file');
 const settingsUploadStatus = document.getElementById('settings-upload-status');
+const settingsUploadOpenBtn = document.getElementById('settings-upload-open');
+const settingsUploadModal = document.getElementById('settings-upload-modal');
+const settingsUploadCloseBtn = document.getElementById('settings-upload-close');
+
+if (settingsUploadOpenBtn && settingsUploadModal) {
+  settingsUploadOpenBtn.addEventListener('click', () => {
+    settingsUploadModal.classList.remove('hidden');
+  });
+}
+
+if (settingsUploadCloseBtn && settingsUploadModal) {
+  settingsUploadCloseBtn.addEventListener('click', () => {
+    settingsUploadModal.classList.add('hidden');
+  });
+}
+
+if (settingsUploadModal) {
+  settingsUploadModal.addEventListener('click', (e) => {
+    if (e.target === settingsUploadModal) {
+      settingsUploadModal.classList.add('hidden');
+    }
+  });
+}
 
 if (settingsUploadBox && settingsResumeFile) {
   settingsUploadBox.addEventListener('click', () => {
@@ -1694,7 +1547,10 @@ if (settingsUploadBox && settingsResumeFile) {
           if (settingsUploadStatus) {
             settingsUploadStatus.classList.add('hidden');
           }
-        }, 1500);
+            if (settingsUploadModal) {
+              settingsUploadModal.classList.add('hidden');
+            }
+          }, 1500);
       } else {
         throw new Error(data.error || 'Upload failed');
       }
@@ -1703,4 +1559,162 @@ if (settingsUploadBox && settingsResumeFile) {
       showSettingsError('Failed to upload resume: ' + error.message);
     }
   });
+}
+
+// Load feedback for settings section
+window.loadSettingsFeedback = async function(page = 1) {
+  try {
+    currentFeedbackPage = page;
+    const response = await window.apiRequest(`/feedback?page=${page}&limit=10`, {
+      method: 'GET',
+    });
+
+    if (response.success && response.data) {
+      displaySettingsFeedback(response.data.feedback || response.data, response.data.pagination);
+    } else {
+      showSettingsError('Failed to load feedback');
+    }
+  } catch (error) {
+    console.error('Load feedback error:', error);
+    showSettingsError('Failed to load feedback: ' + error.message);
+  }
+};
+
+function displaySettingsFeedback(feedback, pagination) {
+  const table = document.getElementById('settings-feedback-table');
+  const tbody = document.getElementById('settings-feedback-tbody');
+  const emptyState = document.getElementById('settings-feedback-empty-state');
+  const paginationContainer = document.getElementById('feedback-pagination');
+  const paginationContainerTop = document.getElementById('feedback-pagination-top');
+
+  if (!feedback || feedback.length === 0) {
+    if (table) table.style.display = 'none';
+    if (emptyState) emptyState.classList.remove('hidden');
+    if (paginationContainer) paginationContainer.classList.add('hidden');
+    if (paginationContainerTop) paginationContainerTop.classList.add('hidden');
+    return;
+  }
+
+  if (table) table.style.display = 'table';
+  if (emptyState) emptyState.classList.add('hidden');
+  if (tbody) tbody.innerHTML = '';
+
+  feedback.forEach(item => {
+    const row = createFeedbackRow(item);
+    if (tbody) tbody.appendChild(row);
+  });
+
+  // Update pagination
+  if (pagination) {
+    feedbackTotalPages = pagination.totalPages || 1;
+    updateFeedbackPagination(pagination);
+  }
+}
+
+function createFeedbackRow(item) {
+  const tr = document.createElement('tr');
+
+  // Type column
+  const typeCell = document.createElement('td');
+  typeCell.style.fontSize = '12px';
+  typeCell.style.textTransform = 'capitalize';
+  typeCell.textContent = item.type === 'cover_letter' ? 'Cover Letter' : 'Resume';
+  tr.appendChild(typeCell);
+
+  // Rating column
+  const ratingCell = document.createElement('td');
+  ratingCell.style.fontSize = '12px';
+  const ratingSpan = document.createElement('span');
+  ratingSpan.style.padding = '4px 8px';
+  ratingSpan.style.borderRadius = '4px';
+  ratingSpan.style.fontSize = '11px';
+  ratingSpan.style.fontWeight = '500';
+  if (item.rating === 'positive') {
+    ratingSpan.textContent = '👍 Positive';
+    ratingSpan.style.background = '#d1fae5';
+    ratingSpan.style.color = '#065f46';
+  } else {
+    ratingSpan.textContent = '👎 Negative';
+    ratingSpan.style.background = '#fee2e2';
+    ratingSpan.style.color = '#991b1b';
+  }
+  ratingCell.appendChild(ratingSpan);
+  tr.appendChild(ratingCell);
+
+  // Message column
+  const messageCell = document.createElement('td');
+  messageCell.style.fontSize = '12px';
+  messageCell.style.color = '#6b7280';
+  messageCell.textContent = item.message || '—';
+  messageCell.style.maxWidth = '200px';
+  messageCell.style.overflow = 'hidden';
+  messageCell.style.textOverflow = 'ellipsis';
+  messageCell.style.whiteSpace = 'nowrap';
+  if (item.message) {
+    messageCell.title = item.message;
+  }
+  tr.appendChild(messageCell);
+
+  // Date column
+  const dateCell = document.createElement('td');
+  dateCell.style.fontSize = '12px';
+  dateCell.style.color = '#6b7280';
+  const date = new Date(item.createdAt);
+  dateCell.textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  tr.appendChild(dateCell);
+
+  return tr;
+}
+
+function updateFeedbackPagination(pagination) {
+  // Bottom pagination
+  const paginationContainer = document.getElementById('feedback-pagination');
+  const paginationInfo = document.getElementById('feedback-pagination-info');
+  const prevBtn = document.getElementById('feedback-pagination-prev');
+  const nextBtn = document.getElementById('feedback-pagination-next');
+
+  // Top pagination
+  const paginationContainerTop = document.getElementById('feedback-pagination-top');
+  const paginationInfoTop = document.getElementById('feedback-pagination-info-top');
+  const prevBtnTop = document.getElementById('feedback-pagination-prev-top');
+  const nextBtnTop = document.getElementById('feedback-pagination-next-top');
+
+  if (pagination) {
+    const { page, total, totalPages } = pagination;
+    
+    if (paginationInfo) {
+      paginationInfo.textContent = `Page ${page} of ${totalPages} (${total} total)`;
+    }
+    if (paginationInfoTop) {
+      paginationInfoTop.textContent = `Page ${page} of ${totalPages} (${total} total)`;
+    }
+
+    if (prevBtn) prevBtn.disabled = page <= 1;
+    if (nextBtn) nextBtn.disabled = page >= totalPages;
+    if (prevBtnTop) prevBtnTop.disabled = page <= 1;
+    if (nextBtnTop) nextBtnTop.disabled = page >= totalPages;
+
+    const handlePrev = () => {
+      if (page > 1) {
+        window.loadSettingsFeedback(page - 1);
+      }
+    };
+
+    const handleNext = () => {
+      if (page < totalPages) {
+        window.loadSettingsFeedback(page + 1);
+      }
+    };
+
+    if (prevBtn) prevBtn.onclick = handlePrev;
+    if (nextBtn) nextBtn.onclick = handleNext;
+    if (prevBtnTop) prevBtnTop.onclick = handlePrev;
+    if (nextBtnTop) nextBtnTop.onclick = handleNext;
+
+    if (paginationContainer) paginationContainer.classList.remove('hidden');
+    if (paginationContainerTop) paginationContainerTop.classList.remove('hidden');
+  } else {
+    if (paginationContainer) paginationContainer.classList.add('hidden');
+    if (paginationContainerTop) paginationContainerTop.classList.add('hidden');
+  }
 }

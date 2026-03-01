@@ -2,7 +2,7 @@
 
 window.DownloadHandler = {
   async downloadTailoredResume(format) {
-    const { downloadUrls, lastResults } = await chrome.storage.local.get(['downloadUrls', 'lastResults']);
+    const { lastResults } = await chrome.storage.local.get(['lastResults']);
     const { resumeId } = await chrome.storage.local.get(['resumeId']);
 
     if (!lastResults || !resumeId) {
@@ -15,39 +15,44 @@ window.DownloadHandler = {
     // Note: Download button loading state is handled in popup.js
 
     try {
-      // Get current edited content - prefer HTML if available (from rich editor)
-      let currentResume = '';
-      let currentCoverLetter = '';
+      // Get HTML content from expanded editor (this is the source of truth)
+      // The textarea is now read-only and just displays a plain text version
+      const resumeHtml = fullDocumentContent?.dataset.htmlContent || '';
+      const coverLetterHtml = coverLetterContent?.dataset.htmlContent || '';
       
-      // Check for HTML content from rich editor (stored in data attributes)
-      if (fullDocumentContent?.dataset.htmlContent) {
-        currentResume = fullDocumentContent.dataset.htmlContent;
-        console.log('Using HTML content from rich editor for resume');
-      } else {
-        currentResume = fullDocumentContent?.value || '';
-      }
-      
-      if (coverLetterContent?.dataset.htmlContent) {
-        currentCoverLetter = coverLetterContent.dataset.htmlContent;
-        console.log('Using HTML content from rich editor for cover letter');
-      } else {
-        currentCoverLetter = coverLetterContent?.value || '';
-      }
+      // Get plain text from textarea (read-only view)
+      const resumeText = fullDocumentContent?.value || '';
+      const coverLetterText = coverLetterContent?.value || '';
 
-      // Get original content for comparison
+      // Get original content for fallback
       const originalResume = lastResults.fullResume || lastResults.fullDocument || '';
       const originalCoverLetter = lastResults.coverLetter || '';
 
-      // Check if content has been edited
-      const hasEdits = currentResume !== originalResume || currentCoverLetter !== originalCoverLetter;
+      // Priority: HTML from editor > textarea text > original content
+      // Always prefer HTML if it exists (it contains formatting from the editor)
+      const finalResume = resumeHtml || resumeText || originalResume;
+      const finalCoverLetter = coverLetterHtml || coverLetterText || originalCoverLetter;
+      
+      // Determine if content is HTML (if HTML exists, it's HTML)
+      const isHtml = !!(resumeHtml || coverLetterHtml);
+
+      console.log('Download content:', {
+        hasResumeHtml: !!resumeHtml,
+        hasCoverLetterHtml: !!coverLetterHtml,
+        hasResumeText: !!resumeText,
+        hasCoverLetterText: !!coverLetterText,
+        isHtml,
+        resumeLength: finalResume.length,
+        coverLetterLength: finalCoverLetter.length,
+      });
 
       // Always use API endpoint to support edited content and create version records
-      // Send HTML content if available, otherwise send plain text
+      // Send HTML content if available (from expanded editor), otherwise send plain text
       const contentToDownload = {
-        fullResume: currentResume || originalResume,
-        fullDocument: currentResume || originalResume,
-        coverLetter: currentCoverLetter || originalCoverLetter,
-        isHTML: !!(fullDocumentContent?.dataset.htmlContent || coverLetterContent?.dataset.htmlContent), // Flag to indicate HTML content
+        fullResume: finalResume,
+        fullDocument: finalResume,
+        coverLetter: finalCoverLetter,
+        isHTML: isHtml, // Flag to indicate HTML content
       };
 
       let downloadUrl = `${window.getApiBaseUrl()}/download-tailored-resume`;

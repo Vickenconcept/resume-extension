@@ -25,11 +25,15 @@
     // Hide header menu and user info when showing auth section
     const headerMenu = document.getElementById('header-menu');
     const userInfo = document.getElementById('user-info');
+    const creditsInfo = document.getElementById('credits-info');
     if (headerMenu) {
       headerMenu.style.display = 'none';
     }
     if (userInfo) {
       userInfo.style.display = 'none';
+    }
+    if (creditsInfo) {
+      creditsInfo.style.display = 'none';
     }
   };
 
@@ -66,7 +70,6 @@
   };
 
   window.showTailorSection = function() {
-    console.log('Showing tailor section...');
     authSection.classList.add('hidden');
     uploadSection.classList.add('hidden');
     readySection.classList.add('hidden');
@@ -83,7 +86,6 @@
     const loading = document.getElementById('loading');
     if (tailorBtn) {
       tailorBtn.disabled = false;
-      console.log('Tailor button enabled, visible:', tailorBtn.offsetParent !== null);
     }
     if (loading) {
       loading.classList.add('hidden'); // Always hide loading when section is shown - only show after button click

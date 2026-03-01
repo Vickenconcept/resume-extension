@@ -5,9 +5,10 @@
 const EXTENSION_CONFIG = {
   // API Base URL (without /api suffix)
   // Examples:
-  // - Local: 'http://localhost:8000'
+  // - Local: 'http://localhost:3000'
+  // - Production: 'https://onpagecv.on-forge.com'
   // - ngrok: 'https://your-id.ngrok.io' or 'https://your-id.ngrok-free.app'
-  API_BASE_URL: 'https://sealable-maci-nonmeteorologic.ngrok-free.dev',
+  API_BASE_URL: 'https://onpagecv.on-forge.com',
   
   // Default timeout for API requests (milliseconds)
   API_TIMEOUT: 30000,

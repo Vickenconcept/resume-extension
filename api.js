@@ -5,7 +5,7 @@
   // Get API URL from config, storage, or use default
   window.API_BASE_URL = (typeof EXTENSION_CONFIG !== 'undefined' && EXTENSION_CONFIG.API_BASE_URL) 
     ? EXTENSION_CONFIG.API_BASE_URL 
-    : 'http://localhost:3000';
+    : 'https://onpagecv.on-forge.com';
 
   // Helper to get API base URL (always adds /api if not present)
   window.getApiBaseUrl = function() {
@@ -16,16 +16,15 @@
   // Helper function to safely get auth token from storage
   async function getAuthTokenSafely() {
     try {
-      // Check if chrome.runtime is still valid
-      if (!chrome.runtime || !chrome.runtime.id) {
-        throw new Error('Extension context invalidated. Please close and reopen the popup.');
+      // If extension context is not available, continue without a token.
+      if (!chrome?.runtime?.id) {
+        return null;
       }
       const { authToken } = await chrome.storage.local.get(['authToken']);
       return authToken;
     } catch (error) {
-      // Check if it's an invalidated context error
       if (error.message && error.message.includes('Extension context invalidated')) {
-        throw new Error('Extension was reloaded. Please close and reopen the popup to continue.');
+        return null;
       }
       throw error;
     }

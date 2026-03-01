@@ -3,7 +3,7 @@
 // Get API URL from config, storage, or use default
 let API_BASE_URL = (typeof EXTENSION_CONFIG !== 'undefined' && EXTENSION_CONFIG.API_BASE_URL) 
   ? EXTENSION_CONFIG.API_BASE_URL 
-  : 'http://localhost:3000';
+  : 'https://onpagecv.on-forge.com';
 
 // Helper to get API base URL (always adds /api if not present)
 function getApiBaseUrl() {
@@ -30,19 +30,13 @@ let tailorBtn, loading;
 try {
   tailorBtn = document.getElementById('tailor-btn');
   loading = document.getElementById('loading');
-  console.log('Elements selected:', { 
-    tailorBtn: !!tailorBtn, 
-    loading: !!loading,
-    documentReady: document.readyState 
-  });
   
   // IMMEDIATELY hide loading element - never show it automatically
   if (loading) {
     loading.classList.add('hidden');
-    console.log('Loading element hidden immediately after selection');
   }
 } catch (error) {
-  console.error('Error selecting elements:', error);
+  // Silently handle error
 }
 
 const fullDocumentContent = document.getElementById('full-document-content');
@@ -154,13 +148,13 @@ async function verifyAuthWithRetry(maxRetries = 2, retryDelay = 1000) {
       
       // If it's a network error and we have retries left, wait and retry
       if (attempt < maxRetries) {
-        console.warn(`Auth check failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`, error.message);
+        
         await new Promise(resolve => setTimeout(resolve, retryDelay));
         continue;
       }
       
       // All retries exhausted, return null to indicate network error (but not auth error)
-      console.warn('Auth check failed after all retries (network error), keeping user logged in:', error.message);
+      
       return null;
     }
   }
@@ -170,13 +164,6 @@ async function verifyAuthWithRetry(maxRetries = 2, retryDelay = 1000) {
 async function apiRequest(endpoint, options = {}) {
   const requestStartTime = Date.now();
   let url = getApiBaseUrl() + endpoint;
-  
-  console.log('API Request:', {
-    endpoint,
-    url,
-    method: options.method || 'GET',
-    timestamp: new Date().toISOString()
-  });
   
   try {
     // Get auth token from storage
@@ -203,14 +190,11 @@ async function apiRequest(endpoint, options = {}) {
       }
     }
     
-    console.log('Making fetch request...', { url, headers });
-    
     const fetchStartTime = Date.now();
     
     // Create abort controller for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.error('Fetch request timeout after 60 seconds');
       controller.abort();
     }, 60000); // 60 second timeout
     
@@ -247,26 +231,11 @@ async function apiRequest(endpoint, options = {}) {
       // Fallback: manual parsing
     const contentType = response.headers.get('content-type');
     
-    console.log('Fetch response received', {
-      status: response.status,
-      statusText: response.statusText,
-      contentType: contentType,
-      fetch_duration_ms: fetchDuration
-    });
-    
     if (contentType && contentType.includes('application/json')) {
-      const parseStartTime = Date.now();
       data = await response.json();
-      const parseDuration = Date.now() - parseStartTime;
-      console.log('JSON parsed successfully', {
-        hasSuccess: !!data.success,
-        hasData: !!data.data,
-        parse_duration_ms: parseDuration
-      });
     } else {
       // Got HTML instead of JSON (likely an error page)
       const text = await response.text();
-      console.error('API returned HTML instead of JSON:', text.substring(0, 500));
       
       // Check if it's ngrok warning page
       let errorMsg = `API endpoint returned HTML instead of JSON.\n\n`;
@@ -330,8 +299,7 @@ async function apiRequest(endpoint, options = {}) {
 
 // Initialize popup
 async function init() {
-  console.log('Initializing popup...');
-  
+
   // IMPORTANT: Hide all sections initially to prevent flash
   // Hide auth section by default (it's already hidden in HTML)
   authSection.classList.add('hidden');
@@ -344,19 +312,17 @@ async function init() {
   // IMPORTANT: Hide loading immediately on init - never show it automatically
   if (loading) {
     loading.classList.add('hidden');
-    console.log('Loading hidden on init');
+
   }
   
   // Load API URL from config.js (no storage needed - set by developer)
   // API_BASE_URL is already set from config.js at the top of the file
-  console.log('API Base URL:', getApiBaseUrl());
-  
+
   // PRIORITY 1: Check for selected text from context menu FIRST (before auth check)
   // This ensures new job descriptions are handled immediately without delay
   const { selectedJobDescription } = await chrome.storage.local.get(['selectedJobDescription']);
   if (selectedJobDescription) {
-    console.log('New job description selected from context menu, showing tailor section immediately...');
-    
+
     // Show tailor section immediately with job description (don't wait for auth)
     jobText.textContent = selectedJobDescription;
     window.showTailorSection();
@@ -401,14 +367,18 @@ async function init() {
       if (response.success) {
         chrome.storage.local.set({ user: response.data.user });
         window.updateUserInfo(response.data.user);
-        console.log('User authenticated:', response.data.user);
+
+        // Load credits after authentication
+        if (window.loadCredits) {
+          window.loadCredits().catch(() => {});
+        }
       } else {
         // Token invalid, show auth
         chrome.storage.local.remove(['authToken', 'user']);
         window.showAuthSection();
       }
     }).catch(error => {
-      console.error('Auth check failed:', error);
+
       // Remove loading text
       if (loadingText.parentNode) loadingText.remove();
       // Only log out if it's an actual authentication error, not a network error
@@ -417,7 +387,7 @@ async function init() {
       window.showAuthSection();
       } else {
         // Network error - keep user logged in, just log the error
-        console.warn('Network error during auth check, keeping user logged in:', error.message);
+
       }
     });
     
@@ -432,7 +402,7 @@ async function init() {
   const { authToken, user } = await chrome.storage.local.get(['authToken', 'user']);
   
   if (!authToken) {
-    console.log('No auth token found, showing auth section');
+
     window.showAuthSection();
     return;
   }
@@ -449,7 +419,11 @@ async function init() {
       // Token is valid, update user info
       await chrome.storage.local.set({ user: response.data.user });
       window.updateUserInfo(response.data.user);
-      console.log('User authenticated:', response.data.user);
+
+      // Load credits
+      if (window.loadCredits) {
+        await window.loadCredits();
+      }
     } else if (response && !response.success) {
       // Token invalid, show auth
       await chrome.storage.local.remove(['authToken', 'user']);
@@ -458,7 +432,7 @@ async function init() {
     }
     // If response is null, it was a network error and we're keeping user logged in
   } catch (error) {
-    console.error('Auth check failed:', error);
+
     // Only log out if it's an actual authentication error
     if (isAuthenticationError(error)) {
     await chrome.storage.local.remove(['authToken', 'user']);
@@ -466,7 +440,7 @@ async function init() {
     return;
     } else {
       // Network error - keep user logged in
-      console.warn('Network error during auth check, keeping user logged in:', error.message);
+
     }
   }
   
@@ -502,7 +476,7 @@ async function init() {
         jobDescriptionToRestore = generationState.jobDescription;
       }
     } catch (error) {
-      console.warn('Error checking generation state via StateManager:', error);
+
     }
   }
   
@@ -517,14 +491,14 @@ async function init() {
       jobDescriptionToRestore = pendingJobDescription || storedJobDescription;
     } else {
       // Stale state - clear it
-      console.log('Stale generation state detected, clearing...');
+
       await chrome.storage.local.set({ operationState: null, generationStartTime: null });
     }
   }
   
   // If generation is in progress, restore the loading state
   if (generationInProgress && jobDescriptionToRestore) {
-    console.log('Generation in progress, restoring loading state...');
+
         if (jobText) {
       jobText.textContent = jobDescriptionToRestore;
         }
@@ -548,17 +522,7 @@ async function init() {
     // If the request already completed, they may need to refresh or check results
         return;
   }
-  
-  console.log('Popup initialization state:', {
-    operationState,
-    currentSection,
-    hasResumeId: !!resumeId,
-    hasPendingJobDescription: !!pendingJobDescription,
-    hasLastResults: !!lastResults,
-    lastViewedAt,
-    hasSavedJobDescription: !!savedJobDescription
-  });
-  
+
   // Only restore results if:
   // 1. No operation is in progress
   // 2. Results section was the last viewed section
@@ -581,7 +545,7 @@ async function init() {
   const { selectedJobDescription: checkSelected } = await chrome.storage.local.get(['selectedJobDescription']);
   if (checkSelected) {
     // New job description selected - show tailor section
-    console.log('Job description found, showing tailor section...');
+
     jobText.textContent = checkSelected;
       window.showTailorSection();
     chrome.storage.local.remove(['selectedJobDescription']);
@@ -603,14 +567,14 @@ async function init() {
     // This prevents showing old results from a different account
     const { resumeId: storedResumeId } = await chrome.storage.local.get(['resumeId']);
     if (storedResumeId === resumeId) {
-      console.log('Restoring results section from saved state...');
+
       await displayResults(lastResults);
       window.showResultsSection();
       return;
     } else {
       // Resume ID mismatch - clear old results
-      console.log('Resume ID mismatch, clearing old results');
-      await chrome.storage.local.remove(['lastResults', 'downloadUrls', 'currentSection']);
+
+      await chrome.storage.local.remove(['lastResults', 'currentSection']);
     }
   }
   
@@ -628,7 +592,7 @@ async function init() {
     const { selectedJobDescription: checkSelected } = await chrome.storage.local.get(['selectedJobDescription']);
     if (checkSelected) {
       // New job description selected - show tailor section
-      console.log('Job description found, showing tailor section...');
+
       await chrome.storage.local.set({
         currentSection: 'tailor',
         operationState: null,
@@ -647,33 +611,25 @@ async function init() {
       }
     } else {
       // No new selection - show home page (ready section)
-      console.log('Resume already uploaded, showing home page');
+
       window.showReadySection();
       loadResumeInfo(); // Load and display stats
     }
   } else {
     // No resumeId in storage - try to fetch default resume from API
-    console.log('No resumeId in storage, fetching default resume from API...');
+
     try {
       const { authToken } = await chrome.storage.local.get(['authToken']);
       if (!authToken) {
-        console.log('No auth token, showing upload section');
-        window.showUploadSection();
+        window.showAuthSection();
         return;
       }
-      
-      console.log('Fetching default resume from API...');
+
       const response = await window.apiRequest('/resume');
-      console.log('Resume API response:', response);
-      
+
       if (response.success && response.data) {
         const resumeId = response.data.resumeId;
-        console.log('Resume data received:', { 
-          resumeId, 
-          filename: response.data.filename,
-          hasResumeId: !!resumeId 
-        });
-        
+
         if (resumeId) {
           // Save resumeId to storage
           await chrome.storage.local.set({
@@ -682,8 +638,7 @@ async function init() {
             resumeCloudinaryUrl: response.data.cloudinaryUrl,
             resumeUploadedAt: response.data.uploadedAt,
           });
-          console.log('Default resume loaded and saved:', resumeId);
-          
+
           // Check for selected job description
           const { selectedJobDescription: checkSelected } = await chrome.storage.local.get(['selectedJobDescription']);
           if (checkSelected) {
@@ -696,22 +651,21 @@ async function init() {
           loadResumeInfo();
           return;
         } else {
-          console.warn('API returned resume data but no resumeId:', response.data);
+
         }
       } else {
-        console.warn('API response not successful or no data:', response);
+
       }
     } catch (error) {
-      console.error('Failed to fetch default resume:', error);
+
       // Don't show error to user, just show upload section
     }
     
     // If we get here, no resume found - new account, show upload section
-    console.log('No resume found, showing upload section (new account)');
+    
     window.showUploadSection();
   }
-  
-  console.log('Popup initialization complete');
+
 }
 
 // Show sections - functions are defined in ui.js, but we keep state saving logic here
@@ -725,6 +679,49 @@ function showError(message) {
   tailorSection.classList.add('hidden');
   resultsSection.classList.add('hidden');
   errorSection.classList.remove('hidden');
+}
+
+function showInfoBanner(message) {
+  const readySectionEl = document.getElementById('ready-section');
+  if (!readySectionEl) return;
+
+  const existing = document.getElementById('info-banner');
+  if (existing) {
+    existing.remove();
+  }
+
+  const banner = document.createElement('div');
+  banner.id = 'info-banner';
+  banner.className = 'info-banner';
+  banner.innerHTML = `
+    <div class="info-banner-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+    </div>
+    <div class="info-banner-text">
+      <strong>No generated content yet</strong>
+      <span>${message}</span>
+    </div>
+  `;
+
+  const welcome = readySectionEl.querySelector('.home-welcome');
+  if (welcome) {
+    readySectionEl.insertBefore(banner, welcome);
+  } else {
+    readySectionEl.prepend(banner);
+  }
+
+  requestAnimationFrame(() => {
+    banner.classList.add('show');
+  });
+
+  setTimeout(() => {
+    banner.classList.remove('show');
+    setTimeout(() => banner.remove(), 200);
+  }, 5000);
 }
 
 // Upload handlers
@@ -810,26 +807,11 @@ async function uploadResume() {
         headers['ngrok-skip-browser-warning'] = 'true';
       }
     }
-    
-    console.log('Upload request:', { 
-      uploadUrl, 
-      headers: Object.keys(headers),
-      hasNgrokHeader: !!headers['ngrok-skip-browser-warning'],
-      fileName: file.name,
-      fileSize: file.size
-    });
-    
+
     const response = await fetch(uploadUrl, {
       method: 'POST',
       headers: headers, // Don't set Content-Type - browser will set it with boundary for FormData
       body: formData,
-    });
-
-    console.log('Upload response received:', {
-      status: response.status,
-      statusText: response.statusText,
-      contentType: response.headers.get('content-type'),
-      url: uploadUrl
     });
 
     // Use centralized response parsing if available
@@ -839,7 +821,7 @@ async function uploadResume() {
         data = await window.API_CONFIG.parseResponse(response);
       } catch (parseError) {
         // parseResponse throws error for HTML, re-throw it with more context
-        console.error('Upload parse error:', parseError);
+
         throw parseError;
       }
     } else {
@@ -849,7 +831,7 @@ async function uploadResume() {
       data = await response.json();
     } else {
       const text = await response.text();
-        console.error('Upload API returned HTML:', text.substring(0, 500));
+        
         throw new Error(`API returned HTML instead of JSON. URL: ${uploadUrl}\n\nCheck:\n1. Backend server is running (npm run dev in backend2)\n2. API URL is correct (click gear icon in popup)\n3. Endpoint exists: /api/upload-resume\n4. ngrok is pointing to port 3000 (not 8000)\n5. ngrok-skip-browser-warning header is being sent (check Network tab in browser console)`);
       }
     }
@@ -952,7 +934,7 @@ async function loadResumeInfo() {
       statGenerated.textContent = totalGenerated;
     }
   } catch (error) {
-    console.error('Failed to load home stats:', error);
+
   }
 }
 
@@ -991,10 +973,16 @@ function displayResumeInfo(filename, cloudinaryUrl, uploadedAt) {
 // NOTE: This is now called from init() before showing ready section
 // This function is kept for backward compatibility but may not be needed
 async function checkForSelectedText() {
-  const { selectedJobDescription } = await chrome.storage.local.get(['selectedJobDescription']);
+  const { selectedJobDescription, lastContextMenuClick } = await chrome.storage.local.get(['selectedJobDescription', 'lastContextMenuClick']);
   
   if (selectedJobDescription) {
-    // New job description selected - clear old results state
+    // Check if this is a new context menu click (force navigation)
+    // If lastContextMenuClick exists and is recent (within last 5 seconds), always navigate
+    const shouldForceNavigate = lastContextMenuClick && (Date.now() - lastContextMenuClick < 5000);
+    
+    // ALWAYS navigate to tailor section when text is selected via context menu
+    // This ensures navigation happens even if the same text is selected
+    // Force navigation regardless of current section
     await chrome.storage.local.set({
       currentSection: 'tailor',
       operationState: null, // Clear any pending operation
@@ -1002,10 +990,21 @@ async function checkForSelectedText() {
       // Keep lastResults for reference, but don't auto-restore
     });
     
-    jobText.textContent = selectedJobDescription;
+    // Update job text and navigate to tailor section
+    if (jobText) {
+      jobText.textContent = selectedJobDescription;
+    }
+    
+    // Force navigation to tailor section - this will work even if already on results page
     window.showTailorSection();
+    
     // Don't remove selectedJobDescription yet - keep it until generation starts
     // This ensures it's available if the user clicks generate before it's displayed
+    
+    // Clear the context menu click timestamp after navigation
+    if (shouldForceNavigate) {
+      await chrome.storage.local.remove(['lastContextMenuClick']);
+    }
     
     // Ensure loading is hidden - never show automatically
     if (loading) {
@@ -1014,23 +1013,20 @@ async function checkForSelectedText() {
     if (tailorBtn) {
       tailorBtn.disabled = false;
     }
+
   }
 }
 
 // Tailor resume - attach listener immediately
 if (tailorBtn) {
-  console.log('Attaching click listener to tailor button...');
+
   tailorBtn.addEventListener('click', async (e) => {
-    console.log('🔥 CLICK EVENT FIRED! 🔥');
+
     e.preventDefault();
     e.stopPropagation();
     
     try {
-      console.log('=== TAILOR BUTTON CLICKED ===');
-      console.log('Button element exists:', !!tailorBtn);
-      console.log('Button disabled:', tailorBtn.disabled);
-      console.log('Current time:', new Date().toISOString());
-      
+
       // Get job description from multiple sources
       let jobDescription = '';
       
@@ -1058,40 +1054,34 @@ if (tailorBtn) {
       // 3. Trim whitespace
       jobDescription = jobDescription.trim();
       
+      const { authToken } = await chrome.storage.local.get(['authToken']);
+      if (!authToken) {
+        if (jobDescription) {
+          await chrome.storage.local.set({
+            selectedJobDescription: jobDescription,
+            currentSection: 'tailor',
+          });
+        }
+        window.showAuthSection();
+        return;
+      }
+
       let resumeId = (await chrome.storage.local.get(['resumeId'])).resumeId;
 
-      console.log('Tailor button clicked', { 
-        jobDescriptionLength: jobDescription?.length,
-        resumeId,
-        hasJobDescription: !!jobDescription && jobDescription.length > 0,
-        hasResumeId: !!resumeId,
-        jobTextExists: !!jobText,
-        jobTextContent: jobText?.textContent?.substring(0, 50),
-        jobDescriptionPreview: jobDescription?.substring(0, 50)
-      });
-
       if (!jobDescription || jobDescription.length === 0) {
-        console.error('Missing job description:', { 
-          jobTextExists: !!jobText,
-          jobTextContent: jobText?.textContent,
-          jobTextInnerText: jobText?.innerText,
-          storage: await chrome.storage.local.get(['selectedJobDescription', 'savedJobDescription'])
-        });
-        window.showError('Please select a job description by highlighting text on a webpage and right-clicking to choose "Tailor resume to this role"');
+        window.showError('Please select a job description by highlighting text on a webpage and right-clicking to choose "On Page CV Tailor to this role"');
         return;
       }
       
       // If no resumeId, try to fetch from API
       if (!resumeId) {
-        console.log('No resumeId in storage, fetching from API...');
+
         try {
           const response = await window.apiRequest('/resume');
-          console.log('Resume API response:', response);
-          
+
           if (response.success && response.data && response.data.resumeId) {
             resumeId = response.data.resumeId;
-            console.log('Fetched resumeId from API:', resumeId);
-            
+
             // Save to storage for future use
             await chrome.storage.local.set({
               resumeId: resumeId,
@@ -1100,34 +1090,43 @@ if (tailorBtn) {
               resumeUploadedAt: response.data.uploadedAt,
             });
           } else {
-            console.error('No resume found in API response:', response);
-            window.showError('Please upload your resume first');
+            if (jobDescription) {
+              await chrome.storage.local.set({ selectedJobDescription: jobDescription });
+            }
+            window.showUploadSection();
+            showUploadStatus('Please upload your resume to continue', 'error');
             return;
           }
         } catch (error) {
-          console.error('Failed to fetch resume from API:', error);
-          window.showError('Please upload your resume first');
+          if (jobDescription) {
+            await chrome.storage.local.set({ selectedJobDescription: jobDescription });
+          }
+          window.showUploadSection();
+          showUploadStatus('Please upload your resume to continue', 'error');
           return;
         }
       }
       
       // Final check - if still no resumeId, show error
       if (!resumeId) {
-        console.error('ResumeId still missing after API fetch attempt');
-        window.showError('Please upload your resume first');
+        if (jobDescription) {
+          await chrome.storage.local.set({ selectedJobDescription: jobDescription });
+        }
+        window.showUploadSection();
+        showUploadStatus('Please upload your resume to continue', 'error');
         return;
       }
 
       // Set operation state for persistence and clear old results
       // Store jobDescription and generateFreely for potential regeneration
-      const generateFreelyToggle = document.getElementById('generate-freely-toggle');
-      const generateFreely = generateFreelyToggle ? generateFreelyToggle.checked : false;
+      const generateFreelyToggleBtn = document.getElementById('generate-freely-toggle');
+      const generateFreely = generateFreelyToggleBtn ? generateFreelyToggleBtn.checked : false;
       
       // Get custom mode and instructions
-      const customModeToggle = document.getElementById('custom-mode-toggle');
-      const customMode = customModeToggle ? customModeToggle.checked : false;
-      const customInstructionsInput = document.getElementById('custom-instructions');
-      const customInstructions = customMode && customInstructionsInput ? customInstructionsInput.value.trim() : '';
+      const customModeToggleBtn = document.getElementById('custom-mode-toggle');
+      const customMode = customModeToggleBtn ? customModeToggleBtn.checked : false;
+      const customInstructionsInputField = document.getElementById('custom-instructions');
+      const customInstructions = customMode && customInstructionsInputField ? customInstructionsInputField.value.trim() : '';
       
       // Store generation start time for persistence tracking
       const generationStartTime = Date.now();
@@ -1146,11 +1145,6 @@ if (tailorBtn) {
         generationStartTime: generationStartTime, // Track when generation started
         // Don't clear lastResults yet - we'll update it after successful generation
       });
-      
-      console.log('Operation state saved:', { 
-        operationState: 'tailoring', 
-        pendingJobDescriptionLength: jobDescription.length 
-      });
 
       loading.classList.remove('hidden');
       tailorBtn.disabled = true;
@@ -1160,19 +1154,10 @@ if (tailorBtn) {
       
       const startTime = Date.now();
       const apiUrl = getApiBaseUrl() + '/tailor-resume';
-      
-      console.log('=== STARTING API REQUEST ===');
-      console.log('Starting API request to tailor resume...', {
-        url: apiUrl,
-        resumeId,
-        jobDescriptionLength: jobDescription.length,
-        startTime: new Date(startTime).toISOString()
-      });
 
       // Create a timeout to detect hanging requests
       const timeoutId = setTimeout(() => {
-        console.error('API request is taking longer than 10 seconds...');
-        console.error('This might indicate the request is hanging or the backend is slow');
+
       }, 10000);
       
       try {
@@ -1196,26 +1181,16 @@ if (tailorBtn) {
         clearTimeout(timeoutId);
         
         const duration = Date.now() - startTime;
-        console.log('=== API RESPONSE RECEIVED ===');
-        console.log('API response received', {
-          success: response.success,
-          hasData: !!response.data,
-          duration_ms: duration,
-          duration_seconds: (duration / 1000).toFixed(2),
-          responseData: response.data
-        });
 
         // Standard response format
         if (response.success && response.data) {
-          console.log('=== TAILORED CONTENT RECEIVED ===');
-          console.log('Download URLs:', response.data.downloadUrls);
-          console.log('DOCX URL:', response.data.downloadUrls?.docx);
-          console.log('PDF URL:', response.data.downloadUrls?.pdf);
-          console.log('Full document length:', response.data.fullDocument?.length);
-          console.log('Cover letter length:', response.data.coverLetter?.length);
-          
-          console.log('Displaying results...');
+
           await displayResults(response.data);
+          
+          // Refresh credits display after successful generation
+          if (window.loadCredits) {
+            await window.loadCredits();
+          }
           
               // Clear operation state AFTER displaying results
               if (window.StateManager && typeof window.StateManager.clearGenerationState === 'function') {
@@ -1232,22 +1207,14 @@ if (tailorBtn) {
           });
           
           window.showResultsSection();
-          console.log('Results displayed successfully');
+
         } else {
           throw new Error(response.error || 'Failed to generate tailored content');
         }
       } catch (error) {
         clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
-        console.error('=== TAILOR ERROR ===');
-        console.error('Tailor error:', {
-          message: error.message,
-          stack: error.stack,
-          duration_ms: duration,
-          duration_seconds: (duration / 1000).toFixed(2),
-          error: error
-        });
-        
+
         // Clear operation state on error
              if (window.StateManager && typeof window.StateManager.clearGenerationState === 'function') {
                await window.StateManager.clearGenerationState();
@@ -1263,53 +1230,34 @@ if (tailorBtn) {
         stopLoadingMessages();
         loading.classList.add('hidden');
         tailorBtn.disabled = false;
-        console.log('=== TAILOR OPERATION FINISHED ===');
+
       }
     } catch (error) {
-      console.error('=== FATAL ERROR IN TAILOR HANDLER ===');
-      console.error('Fatal error:', error);
+
       window.showError('An unexpected error occurred: ' + error.message);
     }
   });
 } else {
-  console.error('❌ Tailor button element not found! Button ID: tailor-btn');
-  console.error('Document ready state:', document.readyState);
-  console.error('Available buttons:', {
-    tailorBtn: document.getElementById('tailor-btn'),
-    uploadBtn: document.getElementById('upload-btn'),
-    allButtons: Array.from(document.querySelectorAll('button')).map(btn => ({ 
-      id: btn.id, 
-      text: btn.textContent?.substring(0, 20),
-      visible: btn.offsetParent !== null
-    }))
-  });
-  
+
   // Try to find it again after a delay
   setTimeout(() => {
     const retryBtn = document.getElementById('tailor-btn');
     if (retryBtn) {
-      console.log('✅ Found tailor button on retry, attaching listener now...');
+
       tailorBtn = retryBtn;
       // Re-attach listener
       tailorBtn.addEventListener('click', async (e) => {
-        console.log('🔥 CLICK EVENT FIRED (retry)! 🔥');
+        
         // ... (same handler code)
       });
     } else {
-      console.error('❌ Still not found after retry');
+
     }
   }, 100);
 }
 
 // Display results - wrapper to ensure expand buttons are set up
 async function displayResults(data) {
-  console.log('Displaying results:', {
-    hasFullResume: !!data.fullResume,
-    hasFullDocument: !!data.fullDocument,
-    hasCoverLetter: !!data.coverLetter,
-    dataKeys: Object.keys(data)
-  });
-
   // Full Resume Preview (backend returns 'fullResume', not 'fullDocument')
   const fullResumeText = data.fullResume || data.fullDocument || '';
   if (fullResumeText && fullResumeText.trim().length > 0) {
@@ -1330,7 +1278,7 @@ async function displayResults(data) {
       fullDocumentContent.dataset.htmlContent = ''; // Clear HTML if it was plain text
     }
   } else {
-    console.error('No resume text found in response');
+
     fullDocumentContent.value = 'Resume not available';
     fullDocumentContent.dataset.htmlContent = '';
   }
@@ -1354,22 +1302,18 @@ async function displayResults(data) {
       coverLetterContent.dataset.htmlContent = ''; // Clear HTML if it was plain text
     }
   } else {
-    console.error('No cover letter found in response');
+
     coverLetterContent.value = 'Cover letter not available';
     coverLetterContent.dataset.htmlContent = '';
   }
 
-  // Store results for download (including download URLs)
-  // URLs are stored in TWO places for redundancy:
-  // 1. Top-level downloadUrls key
-  // 2. Inside lastResults.downloadUrls
+  // Store results for download
   await chrome.storage.local.set({ 
     lastResults: {
       ...data,
       fullResume: fullResumeText, // Ensure fullResume is stored
       fullDocument: fullResumeText // Keep for backward compatibility
-    },
-    downloadUrls: data.downloadUrls || null
+    }
   });
   
   // Display quality scores and similarity metrics if available
@@ -1388,13 +1332,12 @@ async function displayResults(data) {
   // Setup expand buttons after results are displayed
   setTimeout(() => {
     setupExpandButtons();
+    // Initialize feedback buttons
+    if (window.initFeedbackButtons) {
+      window.initFeedbackButtons();
+    }
   }, 100);
-  
-  console.log('=== DOWNLOAD URLS STORED ===');
-  console.log('Stored in chrome.storage.local:');
-  console.log('  - downloadUrls (top level):', data.downloadUrls);
-  console.log('  - lastResults.downloadUrls:', data.downloadUrls);
-  console.log('Cloudinary folder: tailored-resumes');
+
 }
 
 // Handle regenerate button click
@@ -1442,7 +1385,7 @@ async function handleRegenerate(currentData) {
       }
     }
 
-    // Get missing keywords from current results - filter out noise words
+    // Get additional keywords from current results - filter out noise words
     const allMissingKeywords = currentData.similarityMetrics?.missingKeywords || [];
     const matchedKeywords = currentData.similarityMetrics?.matchedKeywords || [];
     const noiseWords = ['intern', 'posted', 'save', 'share', 'apply', 'days', 'ago', 'united', 'states', 'work', 'home', 'part', 'time', 'hours', 'week', 'authorization', 'required', 'open', 'candidates', 'opt', 'cpt'];
@@ -1452,10 +1395,6 @@ async function handleRegenerate(currentData) {
     }).slice(0, 30); // Limit to top 30 most important
     
     const currentResumeText = fullDocumentContent?.value || '';
-
-    console.log('Regenerating with missing keywords:', missingKeywords);
-    console.log('Preserving matched keywords:', matchedKeywords);
-    console.log('Total missing keywords:', allMissingKeywords.length, 'Filtered:', missingKeywords.length);
 
     // Call regenerate endpoint
     const response = await window.apiRequest('/regenerate-resume', {
@@ -1473,6 +1412,11 @@ async function handleRegenerate(currentData) {
     if (response.success && response.data) {
       // Update results with regenerated content
       await displayResults(response.data);
+      
+      // Refresh credits display after successful regeneration
+      if (window.loadCredits) {
+        await window.loadCredits();
+      }
       
       // Show success message
       if (window.showToast) {
@@ -1500,9 +1444,21 @@ async function handleRegenerate(currentData) {
       throw new Error(response.error || 'Failed to regenerate resume');
     }
   } catch (error) {
-    console.error('Regenerate error:', error);
-    if (window.showToast) {
-      window.showToast('Failed to regenerate resume: ' + error.message, 'error');
+
+    // Check if it's a credit error (402 Payment Required)
+    if (error.status === 402 || (error.message && error.message.includes('credits'))) {
+      // Show payment modal
+      if (window.openPaymentModal) {
+        window.openPaymentModal();
+      }
+      // Show error message
+      if (window.showToast) {
+        window.showToast(error.message || 'No credits available. Please purchase credits to continue.', 'error');
+      }
+    } else {
+      if (window.showToast) {
+        window.showToast('Failed to regenerate resume: ' + error.message, 'error');
+      }
     }
     
     // Hide loading
@@ -1560,7 +1516,7 @@ document.querySelectorAll('.btn-copy').forEach(btn => {
       navigator.clipboard.writeText(text).then(() => {
         showCopiedFeedback();
     }).catch(err => {
-        console.error('navigator.clipboard.writeText failed, falling back to execCommand:', err);
+
         try {
           const textarea = document.createElement('textarea');
           textarea.value = text;
@@ -1575,7 +1531,7 @@ document.querySelectorAll('.btn-copy').forEach(btn => {
             showCopiedFeedback();
           }
         } catch (fallbackErr) {
-          console.error('Fallback copy failed:', fallbackErr);
+
         }
       });
     } else {
@@ -1594,7 +1550,7 @@ document.querySelectorAll('.btn-copy').forEach(btn => {
           showCopiedFeedback();
         }
       } catch (err) {
-        console.error('Copy not supported in this environment:', err);
+
       }
     }
   });
@@ -1624,26 +1580,65 @@ if (downloadBtn && downloadDropdown) {
     option.addEventListener('click', async (e) => {
       e.stopPropagation();
       const format = option.getAttribute('data-format');
-      downloadDropdown.classList.add('hidden');
       
-      // Show loading state on download button
+      // Don't close dropdown immediately - keep it open to show loading state
+      // downloadDropdown.classList.add('hidden');
+      
+      // Show loading state on the clicked download option button
+      const originalHTML = option.innerHTML;
+      const originalDisabled = option.disabled;
+      option.classList.add('downloading');
+      option.disabled = true;
+      
+      // Replace content with loading spinner (blue)
+      option.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="download-spinner" style="color: #3b82f6;">
+          <circle cx="12" cy="12" r="10" stroke-opacity="0.25" stroke="#3b82f6"></circle>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round" stroke="#3b82f6"></path>
+        </svg>
+        <span style="color: #3b82f6; font-weight: 600;">Downloading...</span>
+      `;
+      
+      // Also show loading on main download button (blue spinner)
       if (downloadBtn) {
         downloadBtn.classList.add('loading');
         downloadBtn.disabled = true;
-        const originalHTML = downloadBtn.innerHTML;
-        downloadBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+        const btnOriginalHTML = downloadBtn.innerHTML;
+        downloadBtn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="animation: spin 0.8s linear infinite;">
+            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path>
+          </svg>
+        `;
         
         try {
           await downloadTailoredResume(format);
+          // Close dropdown after successful download
+          downloadDropdown.classList.add('hidden');
+        } catch (error) {
+
+          // Error is already shown by DownloadHandler
+          // Keep dropdown open on error so user can retry
         } finally {
-          // Remove loading state
+          // Remove loading state from main download button
           downloadBtn.classList.remove('loading');
-      downloadBtn.disabled = false;
-          downloadBtn.innerHTML = originalHTML;
-    }
+          downloadBtn.disabled = false;
+          downloadBtn.innerHTML = btnOriginalHTML;
+        }
       } else {
-        await downloadTailoredResume(format);
+        try {
+          await downloadTailoredResume(format);
+          // Close dropdown after successful download
+          downloadDropdown.classList.add('hidden');
+        } catch (error) {
+
+        }
       }
+      
+      // Remove loading state from option button
+      option.classList.remove('downloading');
+      option.disabled = originalDisabled;
+      option.innerHTML = originalHTML;
     });
   });
 }
@@ -1671,6 +1666,81 @@ newTailorBtn.addEventListener('click', async () => {
   window.showReadySection();
   loadResumeInfo(); // Load and display resume info
   checkForSelectedText();
+});
+
+// Listen for messages from popup-injector to force check selected text
+// This ensures navigation happens even when the same text is selected
+window.addEventListener('message', async (event) => {
+  // Accept messages from any origin (popup-injector runs in page context)
+  if (event.data && event.data.action === 'forceCheckSelectedText') {
+
+    // Always check and navigate to tailor section if text is selected
+    // Use a small delay to ensure storage is updated
+    setTimeout(async () => {
+      await checkForSelectedText();
+    }, 50);
+  }
+});
+
+// Check for selected text when popup becomes visible
+// This handles the case when popup is toggled from hidden to visible
+document.addEventListener('visibilitychange', async () => {
+  if (!document.hidden) {
+    // Popup became visible - check for selected text (with small delay to ensure storage is updated)
+    setTimeout(async () => {
+      await checkForSelectedText();
+    }, 100);
+  }
+});
+
+// Poll for context menu clicks when popup is visible
+// This ensures we catch context menu clicks even if messages don't get through
+let lastCheckedTimestamp = 0;
+let contextMenuPollInterval = null;
+
+function startContextMenuPolling() {
+  if (contextMenuPollInterval) return; // Already polling
+  
+  contextMenuPollInterval = setInterval(async () => {
+    if (document.hidden) return; // Don't poll when hidden
+    
+    try {
+      const { lastContextMenuClick } = await chrome.storage.local.get(['lastContextMenuClick']);
+      
+      // If there's a new context menu click (timestamp changed), force check
+      if (lastContextMenuClick && lastContextMenuClick !== lastCheckedTimestamp) {
+
+        lastCheckedTimestamp = lastContextMenuClick;
+        await checkForSelectedText();
+      }
+    } catch (error) {
+
+    }
+  }, 200); // Check every 200ms
+}
+
+function stopContextMenuPolling() {
+  if (contextMenuPollInterval) {
+    clearInterval(contextMenuPollInterval);
+    contextMenuPollInterval = null;
+  }
+}
+
+// Start polling when popup is visible
+if (!document.hidden) {
+  startContextMenuPolling();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    stopContextMenuPolling();
+  } else {
+    startContextMenuPolling();
+    // Also check immediately when becoming visible
+    setTimeout(async () => {
+      await checkForSelectedText();
+    }, 100);
+  }
 });
 
 // Retry button
@@ -1730,7 +1800,7 @@ function initExpandedEditor() {
             range = savedSelection;
             savedSelection = null; // Clear after use
           } catch (err) {
-            console.warn('Could not restore selection:', err);
+
             savedSelection = null;
           }
         }
@@ -1807,7 +1877,7 @@ function initExpandedEditor() {
         }
         
         if (!success) {
-          console.warn('Command failed:', command, value);
+
         }
         
         // Update toolbar state
@@ -1820,7 +1890,7 @@ function initExpandedEditor() {
           expandedEditorText.focus();
         }
       } catch (err) {
-        console.error('Error executing command:', command, err);
+
       }
     });
   });
@@ -1855,7 +1925,7 @@ function initExpandedEditor() {
         }
       } catch (e) {
         // Some commands might not support queryCommandState
-        console.debug('Could not query command state:', command);
+
       }
     });
   }
@@ -1874,14 +1944,9 @@ function initExpandedEditor() {
 
 // Expand button handlers - set up after DOM is ready
 function setupExpandButtons() {
-  console.log('Setting up expand buttons...');
+
   const expandResumeBtn = document.getElementById('expand-resume-btn');
   const expandCoverLetterBtn = document.getElementById('expand-cover-letter-btn');
-
-  console.log('Expand buttons found:', {
-    resumeBtn: !!expandResumeBtn,
-    coverLetterBtn: !!expandCoverLetterBtn
-  });
 
   if (expandResumeBtn) {
     // Remove all existing listeners by cloning
@@ -1891,12 +1956,12 @@ function setupExpandButtons() {
     newResumeBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      console.log('✅ Expand resume button clicked');
+
       openExpandedEditor('resume');
     });
-    console.log('✅ Resume expand button listener attached');
+
   } else {
-    console.warn('❌ Expand resume button not found');
+
   }
 
   if (expandCoverLetterBtn) {
@@ -1907,31 +1972,30 @@ function setupExpandButtons() {
     newCoverBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      console.log('✅ Expand cover letter button clicked');
+
       openExpandedEditor('cover-letter');
     });
-    console.log('✅ Cover letter expand button listener attached');
+
   } else {
-    console.warn('❌ Expand cover letter button not found');
+
   }
 }
 
 function openExpandedEditor(target) {
-  console.log('Opening expanded editor for:', target);
-  
+
   if (!expandedEditorOverlay) {
-    console.error('Expanded editor overlay not found');
+
     return;
   }
   
   if (!expandedEditorText) {
-    console.error('Expanded editor text element not found');
+
     return;
   }
 
   // Initialize editor if not already done
   if (!expandedEditorToolbar || !expandedEditorToolbar.querySelector('.toolbar-btn')?.hasAttribute('data-initialized')) {
-    console.log('Initializing editor...');
+
     initExpandedEditor();
     const firstBtn = expandedEditorToolbar?.querySelector('.toolbar-btn');
     if (firstBtn) firstBtn.setAttribute('data-initialized', 'true');
@@ -1947,32 +2011,32 @@ function openExpandedEditor(target) {
     content = fullDocumentContent.value || '';
     htmlContent = fullDocumentContent.dataset.htmlContent || '';
     expandedEditorTitle.textContent = 'Edit Resume';
-    console.log('Resume content length:', content.length, 'HTML content length:', htmlContent.length);
+
   } else if (target === 'cover-letter' && coverLetterContent) {
     content = coverLetterContent.value || '';
     htmlContent = coverLetterContent.dataset.htmlContent || '';
     expandedEditorTitle.textContent = 'Edit Cover Letter';
-    console.log('Cover letter content length:', content.length, 'HTML content length:', htmlContent.length);
+
   }
 
   // If we have HTML content stored, use it; otherwise convert plain text to HTML
   if (htmlContent && htmlContent.trim()) {
-    console.log('Loading HTML content into editor');
+
     expandedEditorText.innerHTML = htmlContent;
   } else if (content && content.trim()) {
-    console.log('Converting plain text to HTML');
+
     // Convert plain text to HTML (preserve line breaks)
     const convertedHtml = content
       .replace(/\n\n+/g, '</p><p>')
       .replace(/\n/g, '<br>');
     expandedEditorText.innerHTML = convertedHtml ? `<p>${convertedHtml}</p>` : '<p><br></p>';
   } else {
-    console.log('No content, starting with empty editor');
+
     expandedEditorText.innerHTML = '<p><br></p>';
   }
 
   // Show overlay
-  console.log('Showing editor overlay');
+
   expandedEditorOverlay.classList.remove('hidden');
   
   // Focus editor
@@ -1990,7 +2054,7 @@ function openExpandedEditor(target) {
           selection.addRange(range);
         }
       } catch (e) {
-        console.warn('Could not set cursor position:', e);
+
       }
     }
   }, 150);
@@ -2000,14 +2064,14 @@ function closeExpandedEditor(save = false) {
   if (!expandedEditorOverlay || !expandedEditorText || !currentEditorTarget) return;
 
   if (save) {
-    // Get HTML content from contentEditable
+    // Get HTML content from contentEditable (this is the source of truth with formatting)
     const htmlContent = expandedEditorText.innerHTML;
     
-    // Convert HTML to plain text (preserve formatting as much as possible)
+    // Convert HTML to plain text for display in read-only textarea
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = htmlContent;
     
-    // Convert to text with line breaks
+    // Convert to text with line breaks (for read-only display)
     let textContent = '';
     const paragraphs = tempDiv.querySelectorAll('p');
     
@@ -2025,14 +2089,16 @@ function closeExpandedEditor(save = false) {
     
     textContent = textContent.replace(/\n{3,}/g, '\n\n').trim();
 
-    // Save to textarea
+    // Save HTML content (with formatting) to dataset - this is what gets downloaded
+    // Save plain text to textarea value (for read-only display)
     if (currentEditorTarget === 'resume' && fullDocumentContent) {
-      fullDocumentContent.value = textContent;
-      fullDocumentContent.dataset.htmlContent = htmlContent;
+      fullDocumentContent.value = textContent; // Plain text for display
+      fullDocumentContent.dataset.htmlContent = htmlContent; // HTML with formatting for download
     } else if (currentEditorTarget === 'cover-letter' && coverLetterContent) {
-      coverLetterContent.value = textContent;
-      coverLetterContent.dataset.htmlContent = htmlContent;
+      coverLetterContent.value = textContent; // Plain text for display
+      coverLetterContent.dataset.htmlContent = htmlContent; // HTML with formatting for download
     }
+
   }
 
   expandedEditorOverlay.classList.add('hidden');
@@ -2087,44 +2153,11 @@ if (document.readyState === 'loading') {
 }
 
 // Verify button exists and event listeners are attached
-console.log('=== POPUP SCRIPT LOADED ===');
-console.log('Initialization check:', {
-  tailorBtnExists: !!tailorBtn,
-  uploadBtnExists: !!uploadBtn,
-  loadingExists: !!loading,
-  apiBaseUrl: getApiBaseUrl(),
-  timestamp: new Date().toISOString()
-});
 
 // Test button click programmatically (for debugging)
 if (tailorBtn) {
-  console.log('✅ Tailor button found');
-  console.log('Tailor button details:', {
-    id: tailorBtn.id,
-    text: tailorBtn.textContent,
-    classes: tailorBtn.className,
-    disabled: tailorBtn.disabled,
-    hidden: tailorBtn.offsetParent === null,
-    parentHidden: tailorSection.classList.contains('hidden')
-  });
-  
-  // Test if we can manually trigger click
-  console.log('Testing manual click...');
-  setTimeout(() => {
-    if (tailorBtn) {
-      console.log('Manual click test - you can try: tailorBtn.click() in console');
-      // Store in window for debugging
-      window.debugTailorBtn = tailorBtn;
-      console.log('Button stored in window.debugTailorBtn for manual testing');
-    }
-  }, 1000);
-} else {
-  console.error('❌ Tailor button NOT found when script loaded!');
-  console.error('Available elements:', {
-    allButtons: Array.from(document.querySelectorAll('button')).map(btn => btn.id),
-    tailorSection: !!document.getElementById('tailor-section'),
-    allSections: Array.from(document.querySelectorAll('.section')).map(s => s.id)
-  });
+  // Store in window for debugging
+  window.debugTailorBtn = tailorBtn;
 }
 
 // Menu toggle and handlers
@@ -2180,7 +2213,7 @@ if (menuHome) {
     window.showUploadSection();
         }
       } catch (error) {
-        console.error('Failed to fetch resume:', error);
+
         window.showUploadSection();
       }
     }
@@ -2228,16 +2261,14 @@ if (menuLastGenerated) {
       }
       window.showResultsSection();
     } else {
-      // No results found, show message and go to home
-      window.showError('No generated content found. Please generate a tailored resume first.');
-      setTimeout(async () => {
-        const { resumeId } = await chrome.storage.local.get(['resumeId']);
-        if (resumeId) {
-          window.showReadySection();
-        } else {
-          window.showUploadSection();
-        }
-      }, 2000);
+      // No results found, show a friendly banner on the home screen
+      const { resumeId } = await chrome.storage.local.get(['resumeId']);
+      if (resumeId) {
+        window.showReadySection();
+        showInfoBanner('Create your first tailored resume to see results here.');
+      } else {
+        window.showUploadSection();
+      }
     }
   });
 }
@@ -2297,7 +2328,7 @@ if (downloadResumeBtn) {
       window.open(resumeCloudinaryUrl, '_blank');
       
     } catch (error) {
-      console.error('Download error:', error);
+
       window.showError('Failed to download resume: ' + error.message);
     }
   });
@@ -2326,8 +2357,10 @@ const loadingMessages = [
   { main: 'Scanning...', sub: 'Reading every line of the job description' },
   { main: 'Analyzing...', sub: 'Extracting keywords, skills, and requirements' },
   { main: 'Matching...', sub: 'Aligning your experience with the role' },
+  { main: 'Structuring...', sub: 'Organizing sections for clarity and impact' },
   { main: 'Checking ATS...', sub: 'Optimizing for applicant tracking systems' },
   { main: 'Generating...', sub: 'Drafting tailored resume content' },
+  { main: 'Reviewing...', sub: 'Ensuring tone, metrics, and action verbs fit' },
   { main: 'Writing...', sub: 'Crafting your professional cover letter' },
   { main: 'Finalizing...', sub: 'Polishing and formatting documents' },
 ];
@@ -2335,7 +2368,7 @@ const loadingMessages = [
 // Regeneration-specific messages
 const regenerationMessages = [
   { main: 'Enhancing...', sub: 'Reviewing your current resume and improvements' },
-  { main: 'Integrating...', sub: 'Adding missing keywords naturally' },
+  { main: 'Integrating...', sub: 'Adding additional keywords naturally' },
   { main: 'Optimizing...', sub: 'Improving keyword alignment and flow' },
   { main: 'Refining...', sub: 'Making content more targeted and relevant' },
   { main: 'Polishing...', sub: 'Ensuring natural, professional language' },
@@ -2471,23 +2504,24 @@ function autoSaveContent() {
             coverLetter: coverLetter,
           }),
         }).catch(err => {
-          console.warn('Auto-save to database failed:', err);
+
           // Don't show error to user - it's background save
         });
       } catch (error) {
-        console.warn('Auto-save failed:', error);
+
       }
     }
   }, 2000); // Save 2 seconds after user stops typing
 }
 
-// Add auto-save listeners
-if (fullDocumentContent) {
-  fullDocumentContent.addEventListener('input', autoSaveContent);
-}
-if (coverLetterContent) {
-  coverLetterContent.addEventListener('input', autoSaveContent);
-}
+// Note: Textareas are now read-only, so no auto-save listeners needed
+// Content is only saved when user clicks "Save Changes" in the expanded editor
+// if (fullDocumentContent) {
+//   fullDocumentContent.addEventListener('input', autoSaveContent);
+// }
+// if (coverLetterContent) {
+//   coverLetterContent.addEventListener('input', autoSaveContent);
+// }
 
 // Settings button already handled above
 
@@ -2509,137 +2543,8 @@ async function loadSavedContent() {
       }
     }
   } catch (error) {
-    console.warn('Failed to load saved content:', error);
+
   }
-}
-
-// Template menu handler
-const moreMenuBtn = document.querySelector('.btn-more');
-const templateMenu = document.querySelector('.template-menu');
-const templateOptions = document.querySelectorAll('.template-option-menu');
-let selectedResumeTemplate = 'classic';
-
-// Load current template preference
-async function loadTemplatePreference() {
-  try {
-    const response = await window.apiRequest('/default-template', {
-      method: 'GET',
-    });
-    if (response.success && response.data) {
-      selectedResumeTemplate = response.data.template || 'classic';
-      // Update visual state of selected template
-      updateTemplateSelection(selectedResumeTemplate);
-    }
-  } catch (error) {
-    console.warn('Failed to load template preference:', error);
-  }
-}
-
-// Update template selection visual state
-function updateTemplateSelection(template) {
-  templateOptions.forEach(option => {
-    const optionTemplate = option.getAttribute('data-template');
-    const nameSpan = option.querySelector('span:first-child');
-    
-    if (optionTemplate === template) {
-      option.style.background = '#f3f4f6';
-      nameSpan.style.fontWeight = '600';
-      nameSpan.style.color = '#111827';
-    } else {
-      option.style.background = 'none';
-      nameSpan.style.fontWeight = '400';
-      nameSpan.style.color = '#111827';
-    }
-  });
-}
-
-// Toggle template menu
-if (moreMenuBtn && templateMenu) {
-  moreMenuBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    templateMenu.classList.toggle('hidden');
-  });
-
-  // Close menu when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!moreMenuBtn.contains(e.target) && !templateMenu.contains(e.target)) {
-      templateMenu.classList.add('hidden');
-    }
-  });
-
-  // Handle template option clicks
-  templateOptions.forEach(option => {
-    option.addEventListener('mouseenter', () => {
-      if (option.getAttribute('data-template') !== selectedResumeTemplate) {
-        option.style.background = '#f9fafb';
-      }
-    });
-    
-    option.addEventListener('mouseleave', () => {
-      if (option.getAttribute('data-template') !== selectedResumeTemplate) {
-        option.style.background = 'none';
-      }
-    });
-
-    option.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const template = option.getAttribute('data-template');
-      
-      if (template === selectedResumeTemplate) {
-        templateMenu.classList.add('hidden');
-        return;
-      }
-
-      // Add loading state
-      option.classList.add('loading');
-      option.disabled = true;
-      const originalText = option.querySelector('span:first-child').textContent;
-      option.querySelector('span:first-child').textContent = 'Updating...';
-
-      try {
-        const response = await window.apiRequest('/default-template', {
-          method: 'POST',
-          body: JSON.stringify({ template }),
-        });
-        
-        if (response.success) {
-          selectedResumeTemplate = template;
-          updateTemplateSelection(template);
-          templateMenu.classList.add('hidden');
-          
-          // Show brief success feedback
-          moreMenuBtn.style.color = '#10b981';
-          setTimeout(() => {
-            moreMenuBtn.style.color = '';
-          }, 1000);
-        }
-      } catch (error) {
-        console.error('Failed to update template:', error);
-        // Show error feedback
-        moreMenuBtn.style.color = '#ef4444';
-        setTimeout(() => {
-          moreMenuBtn.style.color = '';
-        }, 1000);
-      } finally {
-        // Remove loading state
-        option.classList.remove('loading');
-        option.disabled = false;
-        option.querySelector('span:first-child').textContent = originalText;
-      }
-    });
-  });
-}
-
-// Load template when results section is shown
-const originalShowResults = window.showResultsSection;
-if (originalShowResults) {
-  window.showResultsSection = function() {
-    originalShowResults();
-    loadTemplatePreference();
-  };
-} else {
-  // Fallback: load on DOM ready
-  loadTemplatePreference();
 }
 
 // Mode toggles (100% Match vs Custom) - make them behave like radio buttons

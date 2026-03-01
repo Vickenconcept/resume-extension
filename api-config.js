@@ -6,7 +6,7 @@ const API_CONFIG = {
   getBaseUrl: () => {
     return (typeof EXTENSION_CONFIG !== 'undefined' && EXTENSION_CONFIG.API_BASE_URL) 
       ? EXTENSION_CONFIG.API_BASE_URL 
-      : 'http://localhost:3000';
+      : 'https://onpagecv.on-forge.com';
   },
 
   // Get full API base URL (with /api suffix)

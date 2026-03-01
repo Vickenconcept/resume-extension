@@ -8,6 +8,16 @@
   const loginEmail = document.getElementById('login-email');
   const loginPassword = document.getElementById('login-password');
   const authError = document.getElementById('auth-error');
+  const forgotPasswordLink = document.getElementById('forgot-password-link');
+  const resetPasswordSection = document.getElementById('reset-password-section');
+  const resetEmailInput = document.getElementById('reset-email');
+  const resetSubmitBtn = document.getElementById('reset-submit-btn');
+  const resetBackBtn = document.getElementById('reset-back-btn');
+  const resetStatus = document.getElementById('reset-status');
+  const loginForm = document.getElementById('login-form');
+  const registerForm = document.getElementById('register-form');
+  const authHeading = document.getElementById('auth-heading');
+  const authSubheading = document.getElementById('auth-subheading');
 
   if (loginBtn) {
     loginBtn.addEventListener('click', async () => {
@@ -38,12 +48,10 @@
           window.updateUserInfo(response.data.user);
           // Clear ALL old state including resume data - init() will determine if we show home or upload
           await chrome.storage.local.remove([
-            'selectedJobDescription', 
             'currentSection', 
             'operationState', 
             'pendingJobDescription',
             'lastResults',           // Clear old tailored results
-            'downloadUrls',          // Clear old download URLs
             'resumeId',              // Clear old resume ID (will be fetched fresh)
             'resumeFilename',         // Clear old resume filename
             'resumeCloudinaryUrl',   // Clear old resume URL
@@ -60,6 +68,72 @@
         authError.style.display = 'block';
         loginBtn.disabled = false;
         loginBtn.textContent = 'Sign In';
+      }
+    });
+  }
+
+  if (forgotPasswordLink && resetPasswordSection && loginForm && authHeading && authSubheading) {
+    forgotPasswordLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginForm.style.display = 'none';
+      registerForm.style.display = 'none';
+      resetPasswordSection.style.display = 'block';
+      authError.style.display = 'none';
+      resetStatus.textContent = '';
+      resetStatus.style.display = 'none';
+      if (authHeading) authHeading.textContent = 'Forgot password';
+      if (authSubheading) authSubheading.textContent = 'We will email you a reset link';
+    });
+  }
+
+  if (resetBackBtn && resetPasswordSection && loginForm && authHeading && authSubheading) {
+    resetBackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      resetPasswordSection.style.display = 'none';
+      loginForm.style.display = 'block';
+      authError.style.display = 'none';
+      resetStatus.textContent = '';
+      resetStatus.style.display = 'none';
+      if (authHeading) authHeading.textContent = 'Sign in';
+      if (authSubheading) authSubheading.textContent = 'Continue to your account';
+    });
+  }
+
+  if (resetSubmitBtn && resetPasswordSection && resetEmailInput) {
+    resetSubmitBtn.addEventListener('click', async () => {
+      const email = resetEmailInput.value.trim();
+      authError.style.display = 'none';
+      resetStatus.style.display = 'none';
+
+      if (!email) {
+        authError.textContent = 'Please enter your email';
+        authError.style.display = 'block';
+        return;
+      }
+
+      resetSubmitBtn.disabled = true;
+      resetSubmitBtn.textContent = 'Sending...';
+
+      try {
+        const response = await window.apiRequest('/forgot-password', {
+          method: 'POST',
+          body: JSON.stringify({ email }),
+        });
+
+        if (response.success) {
+          resetStatus.textContent = 'If that email is registered, a reset link has been sent.';
+          resetStatus.style.display = 'block';
+          resetStatus.style.color = '#10b981';
+        } else {
+          authError.textContent = response.error || 'Unable to process request';
+          authError.style.display = 'block';
+        }
+      } catch (error) {
+        authError.textContent = error.message || 'Unable to process request';
+        authError.style.display = 'block';
+      } finally {
+        resetSubmitBtn.disabled = false;
+        resetSubmitBtn.textContent = 'Send reset link';
       }
     });
   }
@@ -119,12 +193,10 @@
           window.updateUserInfo(response.data.user);
           // Clear ALL old state including resume data - init() will determine if we show home or upload
           await chrome.storage.local.remove([
-            'selectedJobDescription', 
             'currentSection', 
             'operationState', 
             'pendingJobDescription',
             'lastResults',           // Clear old tailored results
-            'downloadUrls',          // Clear old download URLs
             'resumeId',              // Clear old resume ID (will be fetched fresh)
             'resumeFilename',         // Clear old resume filename
             'resumeCloudinaryUrl',   // Clear old resume URL
@@ -148,8 +220,6 @@
   // Toggle between login and register forms
   const showRegister = document.getElementById('show-register');
   const showLogin = document.getElementById('show-login');
-  const loginForm = document.getElementById('login-form');
-  const registerForm = document.getElementById('register-form');
 
   if (showRegister) {
     showRegister.addEventListener('click', (e) => {
@@ -157,6 +227,8 @@
       loginForm.style.display = 'none';
       registerForm.style.display = 'block';
       authError.style.display = 'none';
+      if (authHeading) authHeading.textContent = 'Create account';
+      if (authSubheading) authSubheading.textContent = 'Start tailoring resumes in minutes';
     });
   }
 
@@ -166,6 +238,8 @@
       registerForm.style.display = 'none';
       loginForm.style.display = 'block';
       authError.style.display = 'none';
+      if (authHeading) authHeading.textContent = 'Sign in';
+      if (authSubheading) authSubheading.textContent = 'Continue to your account';
     });
   }
 
@@ -177,7 +251,7 @@
       try {
         await window.apiRequest('/logout', { method: 'POST' });
       } catch (error) {
-        console.error('Logout error:', error);
+        // Silently handle logout error
       }
       await chrome.storage.local.remove(['authToken', 'user', 'resumeId']);
       const userInfo = document.getElementById('user-info');
@@ -212,6 +286,23 @@
           if (eyeOpen) eyeOpen.style.display = 'block';
           if (eyeClosed) eyeClosed.style.display = 'none';
         }
+      }
+    });
+  });
+
+  const authInputs = document.querySelectorAll(
+    '#login-form input, #register-form input'
+  );
+  authInputs.forEach(input => {
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const loginFormVisible = loginForm && loginForm.style.display !== 'none';
+      const registerFormVisible = registerForm && registerForm.style.display !== 'none';
+      if (loginFormVisible && loginBtn) {
+        loginBtn.click();
+      } else if (registerFormVisible && registerBtn) {
+        registerBtn.click();
       }
     });
   });

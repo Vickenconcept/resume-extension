@@ -7,10 +7,40 @@
   if (document.getElementById('resume-tailor-popup-container')) {
     // Toggle visibility
     const container = document.getElementById('resume-tailor-popup-container');
+    const iframe = document.getElementById('resume-tailor-popup-iframe');
+    
+    // Hide inline bubble when popup is shown
+    const inlineBubble = document.getElementById('resume-tailor-inline-button');
+    if (inlineBubble) {
+      inlineBubble.style.display = 'none';
+    }
+    
     if (container.style.display === 'none') {
       container.style.display = 'flex';
     } else {
-      container.style.display = 'none';
+      // Popup is already visible - don't hide it, just ensure it's visible
+      // and send message to force check
+      container.style.display = 'flex';
+    }
+    
+    // Always send message to iframe to force check for selected text
+    // This ensures navigation happens even when popup is already visible
+    if (iframe && iframe.contentWindow) {
+      try {
+        // Use setTimeout to ensure iframe is ready
+        setTimeout(() => {
+          try {
+            iframe.contentWindow.postMessage({ 
+              action: 'forceCheckSelectedText',
+              timestamp: Date.now() 
+            }, '*');
+          } catch (e) {
+            console.log('Could not send message to iframe:', e);
+          }
+        }, 100);
+      } catch (e) {
+        console.log('Error setting up message to iframe:', e);
+      }
     }
     return;
   }
@@ -82,9 +112,18 @@
     closeBtn.style.transform = 'scale(1)';
   };
 
+  // Hide inline bubble helper
+  const hideInlineBubble = () => {
+    const inlineBubble = document.getElementById('resume-tailor-inline-button');
+    if (inlineBubble) {
+      inlineBubble.style.display = 'none';
+    }
+  };
+
   // Close handler
   const closePopup = () => {
     container.style.display = 'none';
+    // Bubble can show again when popup is closed (handled by content.js)
   };
 
   // Wrapped close handler that also cleans up event listeners
@@ -124,6 +163,9 @@
   iframeWrapper.appendChild(closeBtn);
   container.appendChild(iframeWrapper);
   document.body.appendChild(container);
+  
+  // Hide bubble immediately when popup is created
+  hideInlineBubble();
 
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

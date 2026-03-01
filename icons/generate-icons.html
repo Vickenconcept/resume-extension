@@ -20,14 +20,14 @@
             padding: 10px 20px;
             margin: 10px;
             font-size: 16px;
-            background: #f97316;
+            background: #006eff;
             color: white;
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            border-radius: 50px;
+            cursor: pointer;    
         }
         button:hover {
-            background: #ea580c;
+            background: #0044ff;
         }
         .preview {
             display: inline-block;
@@ -36,7 +36,7 @@
     </style>
 </head>
 <body>
-    <h1>Resume Tailor Extension Icons</h1>
+    <h1>On Page CV Extension Icons</h1>
     <p>Click the buttons below to generate and download icon files</p>
     
     <div class="preview">
@@ -63,9 +63,25 @@
             const canvas = document.getElementById(canvasId);
             const ctx = canvas.getContext('2d');
             
-            // Orange background (#f97316)
-            ctx.fillStyle = '#f97316';
-            ctx.fillRect(0, 0, size, size);
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Blue rounded background
+            const radius = size * 0.2; // 20% of size for rounded corners
+            ctx.fillStyle = '#006eff';
+            ctx.beginPath();
+            // Draw rounded rectangle manually for better browser compatibility
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.fill();
             
             // White "R" letter in center
             ctx.fillStyle = '#ffffff';
